@@ -470,7 +470,7 @@ def handle_user_screenshot(message):
     print(f"Creator ဆီသို့ ပုံပို့ရာတွင် အမှားဖြစ်သည်: {e}")
 
 
-# 2. သာမန်စာသားများအတွက် Groq AI ဖြင့် တုံ့ပြန်မည့် Handler (Active Model အသစ် 'llama-3.1-70b-versatile' ကို သုံးထားသည်)
+# 2. သာမန်စာသားများအတွက် Groq AI (Active Model အသစ် 'llama-3.3-70b-versatile' ကို သုံးထားသည်)
 @bot.message_handler(
     func=lambda message: True,
     content_types=["text", "audio", "document", "video", "voice"],
@@ -484,7 +484,7 @@ def handle_groq_chat(message):
     user_text = message.text
 
     completion = groq_client.chat.completions.create(
-        model="llama-3.1-70b-versatile",
+        model="llama-3.3-70b-versatile",
         messages=[
             {"role": "system", "content": SYSTEM_PROMPT},
             {"role": "user", "content": user_text},
