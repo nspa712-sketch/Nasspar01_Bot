@@ -55,6 +55,10 @@ AUTO_BACKUP_INTERVAL_SECONDS = 24 * 60 * 60
 AUTO_BACKUP_RETENTION_DAYS = 7
 BACKUP_PREFIX = os.path.basename(DB_FILE) + ".auto_"
 REFERRAL_REWARD_POINTS = 1  # 1 point for each referred user who becomes a paid member.
+REWARD_CASH_MMK = 5000
+REWARD_REQUIRED_POINTS = 50
+REWARD_VALID_HOURS = 72
+REWARD_EXPIRY_CHECK_SECONDS = 30
 
 logging.basicConfig(
     level=logging.INFO,
@@ -312,6 +316,9 @@ def initialize_database():
         add_column_if_missing(conn, "members", "invite_link", "TEXT")
         add_column_if_missing(conn, "members", "invite_created_at", "TEXT")
         add_column_if_missing(conn, "users", "referred_by", "INTEGER")
+        # Reward wallet expiry state; existing user/referral records remain intact.
+        add_column_if_missing(conn, "users", "reward_expires_at", "TEXT")
+        add_column_if_missing(conn, "users", "reward_notified_at", "TEXT")
         conn.execute("""
             CREATE TABLE IF NOT EXISTS referrals (
                 referral_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -899,6 +906,7 @@ def review_payment(actor_id, payment_id, target_id, action, note=""):
     if action not in ("approve", "reject"):
         return False, "Invalid action.", None
     new_status = "approved" if action == "approve" else "rejected"
+    reward_referrer_id = None
     with get_db() as conn:
         payment = conn.execute("""
             SELECT * FROM payments
@@ -933,6 +941,10 @@ def review_payment(actor_id, payment_id, target_id, action, note=""):
             if referral:
                 conn.execute("UPDATE referrals SET converted_at=?, reward_points=? WHERE referral_id=?",
                              (current_time(), REFERRAL_REWARD_POINTS, referral["referral_id"]))
+                reward_referrer_id = int(referral["referrer_id"])
+
+    if action == "approve" and reward_referrer_id:
+        activate_reward_if_eligible(reward_referrer_id)
 
     invite_link = None
     if action == "approve":
@@ -1109,7 +1121,147 @@ def referral_text(user_id):
             f"👥 စုစုပေါင်းဖိတ်ခေါ်သူ: <b>{row['total'] or 0}</b> ဦး\n"
             f"👑 Premium ဝင်ပြီးသူ: <b>{row['converted'] or 0}</b> ဦး\n"
             f"⭐ ရရှိထားသော Reward Points: <b>{row['points'] or 0}</b>\n\n"
-            f"ဖိတ်ခေါ်ထားသူတစ်ဦး Premium Member ဖြစ်လာပါက {REFERRAL_REWARD_POINTS} Point ရရှိပါမည်။")
+            f"ဖိတ်ခေါ်ထားသူတစ်ဦး Premium Member ဖြစ်လာပါက {REFERRAL_REWARD_POINTS} Point ရရှိပါမည်။\n\n"
+            f"💰 Point {REWARD_REQUIRED_POINTS} ရရှိပါက မြန်မာငွေ {REWARD_CASH_MMK:,} ကျပ် တိတိနှင့် လဲလှယ်နိုင်ပါသည်။\n"
+            f"⏳ Point {REWARD_REQUIRED_POINTS} ပြည့်သည့်အချိန်မှစ၍ ၇၂ နာရီအတွင်း ငွေသားထုတ်ယူရပါမည်။")
+
+
+def reward_notification_keyboard(user_id):
+    markup = types.InlineKeyboardMarkup(row_width=1)
+    markup.add(types.InlineKeyboardButton(
+        "💸 ငွေထုတ်ပေးပြီးပါပြီ (Point Reset)",
+        callback_data=f"rewardpaid_{int(user_id)}"
+    ))
+    return markup
+
+
+def activate_reward_if_eligible(referrer_id):
+    """Start one 72-hour reward window when a user's balance first reaches 50."""
+    referrer_id = int(referrer_id)
+    now = datetime.now(TIMEZONE)
+    expires_at = (now + timedelta(hours=REWARD_VALID_HOURS)).strftime("%Y-%m-%d %H:%M:%S")
+    with get_db() as conn:
+        row = conn.execute("""
+            SELECT COALESCE(SUM(reward_points), 0) AS points
+            FROM referrals WHERE referrer_id=?
+        """, (referrer_id,)).fetchone()
+        points = int(row["points"] or 0)
+        user = conn.execute("""
+            SELECT username, first_name, reward_expires_at, reward_notified_at
+            FROM users WHERE user_id=?
+        """, (referrer_id,)).fetchone()
+        if points < REWARD_REQUIRED_POINTS or not user or user["reward_expires_at"]:
+            return False
+        conn.execute("""
+            UPDATE users SET reward_expires_at=?, reward_notified_at=? WHERE user_id=?
+        """, (expires_at, current_time(), referrer_id))
+        username = user["username"] or "မရှိပါ"
+        name = user["first_name"] or "Unknown"
+
+    user_message = (
+        "🎉 <b>ဂုဏ်ယူပါတယ် မိတ်ဆွေ!</b>\n\n"
+        f"🏆 သင်သည် Reward Points {points} ကို စုဆောင်းထားပြီးပါပြီ။\n"
+        f"💵 ငွေသားဆုကြေး: <b>{REWARD_CASH_MMK:,} ကျပ်</b>\n\n"
+        "💸 ငွေသားထုတ်ယူရန် Creator ဆီသို့ ဆက်သွယ်ပါ။\n"
+        "👨‍💻 Creator Acc: @Nazzpar\n\n"
+        f"⏳ သင်၏ Point များသည် {REWARD_VALID_HOURS} နာရီအတွင်း သက်တမ်းကုန်ဆုံးမည်ဖြစ်ပါသည်။\n"
+        f"🕒 နောက်ဆုံးထုတ်ယူရမည့်အချိန်: <code>{html_text(expires_at)}</code>"
+    )
+    creator_message = (
+        "🔔 <b>NEW REWARD NOTIFICATION</b>\n"
+        "━━━━━━━━━━━━━━━━━━━━━━\n"
+        f"👤 Name: {html_text(name)}\n"
+        f"🔗 Username: {html_text('@' + username if username != 'မရှိပါ' else username)}\n"
+        f"🆔 User ID: <code>{referrer_id}</code>\n"
+        f"⭐ Reward Points: <b>{points}</b>\n"
+        f"💰 Cash Reward: <b>{REWARD_CASH_MMK:,} MMK</b>\n"
+        f"⏳ Expires: <code>{html_text(expires_at)}</code>\n\n"
+        "ငွေထုတ်ပေးပြီးပါက အောက်ပါခလုတ်ကို နှိပ်ပါ။"
+    )
+    try:
+        bot.send_message(referrer_id, user_message, parse_mode="HTML")
+    except Exception:
+        logger.exception("Reward notification to user %s failed.", referrer_id)
+    try:
+        bot.send_message(CREATOR_ID, creator_message, parse_mode="HTML",
+                         reply_markup=reward_notification_keyboard(referrer_id))
+    except Exception:
+        logger.exception("Reward notification to creator failed for user %s.", referrer_id)
+    log_action(CREATOR_ID, "Reward threshold reached", referrer_id,
+               f"points={points}; expires_at={expires_at}")
+    return True
+
+
+def payout_reward_points(actor_id, target_id):
+    """Creator-confirmed payout: clear every accumulated point and its expiry."""
+    if int(actor_id) != CREATOR_ID:
+        return False, "ဤလုပ်ဆောင်ချက်ကို Creator သာ အတည်ပြုနိုင်ပါသည်။", 0
+    target_id = int(target_id)
+    with get_db() as conn:
+        user = conn.execute("SELECT user_id, reward_expires_at FROM users WHERE user_id=?", (target_id,)).fetchone()
+        if not user:
+            return False, "User ကို မတွေ့ပါ။", 0
+        row = conn.execute("""
+            SELECT COALESCE(SUM(reward_points), 0) AS points
+            FROM referrals WHERE referrer_id=?
+        """, (target_id,)).fetchone()
+        points = int(row["points"] or 0)
+        if points < REWARD_REQUIRED_POINTS or not user["reward_expires_at"]:
+            return False, f"Point {REWARD_REQUIRED_POINTS} ပြည့်ပြီး Reward သက်တမ်းစတင်ထားသော User မဟုတ်ပါ။", 0
+        conn.execute("UPDATE referrals SET reward_points=0 WHERE referrer_id=?", (target_id,))
+        conn.execute("""
+            UPDATE users SET reward_expires_at=NULL, reward_notified_at=NULL WHERE user_id=?
+        """, (target_id,))
+    log_action(actor_id, "Reward payout confirmed / points reset", target_id,
+               f"paid_points={points}; cash={REWARD_CASH_MMK} MMK")
+    try:
+        bot.send_message(
+            target_id,
+            "✅ <b>ငွေသားဆုကြေး ထုတ်ပေးပြီးပါပြီ။</b>\n\n"
+            f"💵 ထုတ်ပေးငွေ: <b>{REWARD_CASH_MMK:,} ကျပ်</b>\n"
+            f"⭐ သင်၏ Reward Points {points} ကို 0 ပြန်လည်သတ်မှတ်ပြီးပါပြီ။\n"
+            "🎁 နောက်ထပ် Point များကို ဆက်လက်စုဆောင်းနိုင်ပါပြီ။",
+            parse_mode="HTML"
+        )
+    except Exception:
+        logger.exception("Payout confirmation notification failed for user %s", target_id)
+    return True, "ငွေထုတ်ပေးမှု အတည်ပြုပြီး Point အားလုံးကို 0 ပြန်ထားပြီးပါပြီ။", points
+
+
+def reward_expiry_worker():
+    """Expire reward balances automatically after their 72-hour window."""
+    while True:
+        try:
+            now_text = current_time()
+            expired = []
+            with get_db() as conn:
+                rows = conn.execute("""
+                    SELECT user_id FROM users
+                    WHERE reward_expires_at IS NOT NULL AND reward_expires_at <= ?
+                """, (now_text,)).fetchall()
+                for row in rows:
+                    uid = int(row["user_id"])
+                    conn.execute("UPDATE referrals SET reward_points=0 WHERE referrer_id=?", (uid,))
+                    conn.execute("""
+                        UPDATE users SET reward_expires_at=NULL, reward_notified_at=NULL
+                        WHERE user_id=? AND reward_expires_at <= ?
+                    """, (uid, now_text))
+                    expired.append(uid)
+            for uid in expired:
+                try:
+                    bot.send_message(
+                        uid,
+                        "⌛ <b>Reward Points သက်တမ်းကုန်ဆုံးသွားပါပြီ။</b>\n\n"
+                        "⏳ ၇၂ နာရီ ပြည့်သွားသောကြောင့် သင်၏ Reward Points အားလုံးကို 0 ပြန်ထားလိုက်ပါပြီ။\n"
+                        "🎁 နောက်ထပ် Referral များမှ Point အသစ်များကို ပြန်လည်စုဆောင်းနိုင်ပါသည်။",
+                        parse_mode="HTML"
+                    )
+                except Exception:
+                    logger.exception("Reward expiry notification failed for user %s", uid)
+                log_action(CREATOR_ID, "Reward points expired", uid, "72-hour reward window ended")
+        except Exception:
+            logger.exception("Reward expiry worker failed.")
+        time.sleep(REWARD_EXPIRY_CHECK_SECONDS)
 
 
 def advanced_stats_text():
@@ -1208,6 +1360,24 @@ def command_referral(message):
         return
     register_user(message.from_user)
     bot.send_message(message.chat.id, referral_text(uid), parse_mode="HTML")
+
+
+@bot.message_handler(commands=["rewardpaid"])
+def command_reward_paid(message):
+    if not is_owner(message.from_user.id):
+        bot.reply_to(message, "⛔ ငွေထုတ်ပေးမှုကို Creator သာ အတည်ပြုနိုင်ပါသည်။")
+        return
+    args = (message.text or "").split()
+    if len(args) != 2:
+        bot.reply_to(message, "အသုံးပြုပုံ: /rewardpaid USER_ID")
+        return
+    try:
+        target_id = int(args[1])
+    except ValueError:
+        bot.reply_to(message, "မှန်ကန်သော User ID ထည့်ပါ။")
+        return
+    ok, result, points = payout_reward_points(message.from_user.id, target_id)
+    bot.reply_to(message, ("✅ " if ok else "⚠️ ") + html_text(result), parse_mode="HTML")
 
 
 @bot.message_handler(commands=["search", "finduser"])
@@ -1772,6 +1942,30 @@ def callback_handler(call):
         safe_answer_callback(call, "အသုံးပြုခွင့် ပိတ်ထားပါသည်။", True)
         return
 
+    if data.startswith("rewardpaid_"):
+        if not is_owner(user_id):
+            safe_answer_callback(call, "Creator သာ ငွေထုတ်ပေးမှုကို အတည်ပြုနိုင်ပါသည်။", True)
+            return
+        try:
+            target_id = int(data.split("_", 1)[1])
+        except ValueError:
+            safe_answer_callback(call, "User ID မှားယွင်းနေပါသည်။", True)
+            return
+        ok, result, points = payout_reward_points(user_id, target_id)
+        safe_answer_callback(call, result, not ok)
+        if ok and call.message:
+            try:
+                bot.edit_message_text(
+                    "✅ <b>Reward Payout Completed</b>\n"
+                    f"🆔 User ID: <code>{target_id}</code>\n"
+                    f"⭐ Reset Points: <b>{points}</b>\n"
+                    f"💵 Paid: <b>{REWARD_CASH_MMK:,} MMK</b>",
+                    chat_id, call.message.message_id, parse_mode="HTML"
+                )
+            except Exception:
+                logger.exception("Could not update reward notification message.")
+        return
+
     if data in ("reset_confirm", "reset_cancel"):
         if not is_owner(user_id):
             safe_answer_callback(call, "Owner Only!", True)
@@ -2016,7 +2210,7 @@ def callback_handler(call):
             chat_id,
             "👑 <b>Nasspar's Premium Channel</b>\n"
             "━━━━━━━━━━━━━━━━━━━━━━\n"
-            "👑လက်ရှိတွင် Premium Channel သီးသန့် ဖွင့်လှစ်ထားခြင်း မရှိသေးပါ။ ဝန်ဆောင်မှု အသစ်များ ပေါ်ထွက်လာပါက ဤ bot မှတစ်ဆင့် အကြောင်းကြးပြေးသွားပါမည်။💘",
+            "👑လက်ရှိတွင် Premium Channel သီးသန့် ဖွင့်လှစ်ထားခြင်း မရှိသေးပါ။ ဝန်ဆောင်မှု အသစ်များ ပေါ်ထွက်လာပါက ဤ bot မှတစ်ဆင့် အကြောင်းကြားပေးသွားပါမည်။💘",
             parse_mode="HTML"
         )
     elif data in FAQ_ANSWERS:
@@ -2076,9 +2270,12 @@ if __name__ == "__main__":
     logger.info("Anti-Spam: Enabled")
     logger.info("Automatic Daily Backup: Enabled (7-day retention)")
     logger.info("Advanced Dashboard / User Profile / Referral / User Search: Enabled")
+    logger.info("Referral Reward Payout / 72-hour Expiry: Enabled")
     logger.info("━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
     backup_thread = threading.Thread(target=automatic_backup_worker, name="auto-backup", daemon=True)
     backup_thread.start()
+    reward_thread = threading.Thread(target=reward_expiry_worker, name="reward-expiry", daemon=True)
+    reward_thread.start()
     try:
         bot.remove_webhook()
         while True:
