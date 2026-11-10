@@ -822,7 +822,7 @@ def auto_reply_for_text(user_text):
 
 
 # =========================================================
-# 7. PAYMENT / PREMIUM CHANNEL ACCESS (UPDATED)
+# 7. PAYMENT / PREMIUM CHANNEL ACCESS
 # =========================================================
 
 def create_member_invite(user_id):
@@ -830,7 +830,6 @@ def create_member_invite(user_id):
     if not PREMIUM_CHANNEL_ID:
         return PREMIUM_CHANNEL_LINK
     try:
-        # Member တစ်ဦးချင်းစီအတွက် တစ်ခါသုံး / ၂၄ နာရီသက်တမ်းရှိ သီးသန့်လင့်ခ်အသစ် ဖန်တီးခြင်း
         invite = bot.create_chat_invite_link(
             chat_id=PREMIUM_CHANNEL_ID,
             member_limit=1,
@@ -839,7 +838,7 @@ def create_member_invite(user_id):
         )
         return invite.invite_link
     except Exception:
-        logger.exception("Individual invite creation failed, fallback to PREMIUM_CHANNEL_LINK.")
+        logger.exception("Individual invite creation failed.")
         return PREMIUM_CHANNEL_LINK
 
 
@@ -1861,14 +1860,24 @@ def callback_handler(call):
             return
 
         if action_name == "approve":
-            success_text = (
-                "🎉 <b>ဂုဏ်ယူပါတယ်!</b> 👏\n"
-                "━━━━━━━━━━━━━━━━━━━━━━\n"
-                "မိတ်ဆွေသည် Ashita No Joe Series အတွက် တစ်သက်စာ Member ဖြစ်သွားပါပြီ။ 👑\n\n"
-                "Premium Channel သို့ ဝင်ရန် ကိုယ်ပိုင် Invite Link:\n"
-                f"{html_text(invite_link)}\n\n"
-                "ဤ Link သည် တစ်ဦးသာ အသုံးပြုနိုင်ပြီး ၂၄ နာရီအတွင်း သက်တမ်းကုန်ပါမည်။"
-            )
+            if invite_link:
+                success_text = (
+                    "🎉 <b>ဂုဏ်ယူပါတယ်!</b> 👏\n"
+                    "━━━━━━━━━━━━━━━━━━━━━━\n"
+                    "မိတ်ဆွေသည် Ashita No Joe Series အတွက် တစ်သက်စာ Member ဖြစ်သွားပါပြီ။ 👑\n\n"
+                    "Premium Channel သို့ ဝင်ရန် ကိုယ်ပိုင် Invite Link:\n"
+                    f"{html_text(invite_link)}\n\n"
+                    "ဤ Link သည် တစ်ဦးသာ အသုံးပြုနိုင်ပြီး ၂၄ နာရီအတွင်း သက်တမ်းကုန်ပါမည်။"
+                )
+            else:
+                success_text = (
+                    "🎉 <b>ဂုဏ်ယူပါတယ်!</b>\n"
+                    "သင်သည် Lifetime Member ဖြစ်သွားပါပြီ။\n\n"
+                    "Premium Channel Link:\n"
+                    f"{html_text(PREMIUM_CHANNEL_LINK)}\n\n"
+                    "မှတ်ချက်: တစ်ဦးချင်း Invite Link ရရှိရန် Bot ကို Premium Channel Admin ထားပြီး "
+                    "PREMIUM_CHANNEL_ID သတ်မှတ်ပါ။"
+                )
             try:
                 bot.send_message(target_id, success_text, parse_mode="HTML")
             except Exception:
@@ -2007,12 +2016,12 @@ def callback_handler(call):
             chat_id,
             "👑 <b>Nasspar's Premium Channel</b>\n"
             "━━━━━━━━━━━━━━━━━━━━━━\n"
-            "👑လက်ရှိတွင် Premium Channel သီးသန့် ဖွင့်လှစ်ထားခြင်း မရှိသေးပါ။ ဝန်ဆောင်မှု အသစ်များပေါ်ထွက်လာပါက ဤ bot မှတစ်ဆင့် အကြောင်းကြားပေးသွားပါမည်။💘",
+            "👑လက်ရှိတွင် Premium Channel သီးသန့် ဖွင့်လှစ်ထားခြင်း မရှိသေးပါ။ ဝန်ဆောင်မှု အသစ်များ ပေါ်ထွက်လာပါက ဤ bot မှတစ်ဆင့် အကြောင်းကြးပြေးသွားပါမည်။💘",
             parse_mode="HTML"
         )
     elif data in FAQ_ANSWERS:
         safe_answer_callback(call)
-ANSWERS        bot.send_message(chat_id, render_text(FAQ_[data]),
+        bot.send_message(chat_id, render_text(FAQ_ANSWERS[data]),
                          parse_mode="HTML", reply_markup=faq_keyboard())
     elif data == "main_menu":
         safe_answer_callback(call)
