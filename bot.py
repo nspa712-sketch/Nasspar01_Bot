@@ -72,9 +72,9 @@ def show_stats(message):
 
   bot.reply_to(
       message,
-      f"📊 **Bot Statistics:**\n\n👥 စုစုပေါင်း အသုံးပြုသူ (Total Users):"
-      f" `{total_users}` ယောက်",
-      parse_mode="Markdown",
+      f"📊 **Bot Statistics Dashboard:**\n\n👥 စုစုပေါင်း အသုံးပြုသူ (Total Users):"
+      f" `{total_users}` ယောက် 🚀",
+      parse_Mode="Markdown",
   )
 
 
@@ -90,12 +90,12 @@ def check_user_subscription(user_id):
 
 def show_main_menu(chat_id):
   welcome_text = (
-      "မင်္ဂလာပါ မိတ်ဆွေ..👋\n"
-      "ကျွန်တော်ကတော့ Nasspar's bot ပဲ ဖြစ်ပါတယ်..🤖\n\n"
-      "သင်သိလိုသော အကြောင်းအရာများကို အောက်တွင် ဖော်ပြထားသော ခလုတ်များကို နှိပ်၍"
-      " လေ့လာနိုင်ပါတယ် ခင်ဗျာ..✨\n"
-      "(သို့မဟုတ်) Ashita No Joe အကြောင်းနှင့် ပတ်သက်သည်များကို စာတိုပေးပို့၍"
-      " မေးမြန်းနိုင်ပါသည် 🧠"
+      "✨ **မင်္ဂလာပါ မိတ်ဆွေ...** 👋\n"
+      "━━━━━━━━━━━━━━━━━━━━━━\n"
+      "🤖 ကျွန်တော်ကတော့ **Nasspar's Bot** ရဲ့ AI Assistant ပဲ ဖြစ်ပါတယ်ခင်ဗျာ။\n\n"
+      "🎬 အောက်ပါ Menu ခလုတ်များကို အသုံးပြု၍ လိုအပ်သည်များကို လေ့လာနိုင်သလို၊\n"
+      "💬 **Ashita No Joe** ဇာတ်ကားအကြောင်း၊ သမိုင်းကြောင်းများကိုလည်း စာတိုပေးပို့၍"
+      " လွတ်လပ်စွာ မေးမြန်းနိုင်ပါတယ် 🧠✨"
   )
 
   markup = types.InlineKeyboardMarkup(row_width=1)
@@ -103,20 +103,21 @@ def show_main_menu(chat_id):
       "🥊 Ashita No Joe Series အကြောင်း လေ့လာရန်", callback_data="about_joe"
   )
   btn2 = types.InlineKeyboardButton(
-      "💳 Ashita No Joe အတွက် ငွေပေးချေရန်", callback_data="payment_info"
+      "💳 Member ကြေး ငွေပေးချေရန်", callback_data="payment_info"
   )
   btn3 = types.InlineKeyboardButton(
       "🎬 Ashita No Joe အစမ်းကြည့်ရန် (Channel)",
       url="https://t.me/ashitanojoefreeep",
   )
   btn_admin1 = types.InlineKeyboardButton(
-      "💬 Admin (1) ဆက်သွယ်ရန်", url="https://t.me/Nazzpar"
+      "💬 Admin (1) သို့ ဆက်သွယ်ရန် (@Nazzpar)", url="https://t.me/Nazzpar"
   )
   btn_admin2 = types.InlineKeyboardButton(
-      "💬 Admin (2) ဆက်သွယ်ရန်", url="https://t.me/hikarikenn"
+      "💬 Admin (2) သို့ ဆက်သွယ်ရန် (@hikarikenn)",
+      url="https://t.me/hikarikenn",
   )
   btn5 = types.InlineKeyboardButton(
-      "🔒 Nasspar's Premium Channel အကြောင်း", callback_data="premium_info"
+      "👑 Nasspar's Premium Channel အကြောင်း", callback_data="premium_info"
   )
 
   markup.add(btn1, btn2, btn3, btn_admin1, btn_admin2, btn5)
@@ -144,9 +145,9 @@ def send_welcome(message):
 
     bot.send_message(
         message.chat.id,
-        "⚠️ **မင်္ဂလာပါ မိတ်ဆွေ...**\n\n"
+        "⚠️ **ချန်နယ် Join ရန် လိုအပ်ပါသည်**\n\n"
         f"ဤ Bot အား အသုံးမပြုမီ ကျေးဇူးပြု၍ ကျွန်ုပ်တို့၏ Channel"
-        f" ({CHANNEL_USERNAME}) ကို Join ပေးပါရန် မေတ္တာရပ်ခံအပ်ပါတယ်ခင်ဗျာ။",
+        f" ({CHANNEL_USERNAME}) ကို ဦးစွာ Join ပေးပါရန် မေတ္တာရပ်ခံအပ်ပါတယ်ခင်ဗျာ။ 🙏",
         parse_mode="Markdown",
         reply_markup=markup,
     )
@@ -175,44 +176,46 @@ def callback_handler(call):
   elif call.data == "about_joe":
     bot.answer_callback_query(call.id)
     joe_text = (
-        "🥊 **Ashita No Joe (Tomorrow's Joe) အကြောင်း**\n\n"
-        "Ashita no Joe ဟာ နာမည်ကြီး ဂန္တဝင် လက်ဝှေ့ အန်နီမေးရှင်း ဇာတ်ကား"
-        " တစ်ကားဖြစ်ပြီး လူငယ်ဘဝ ရုန်းကန်လှုပ်ရှားမှုများကို အကောင်းဆုံး"
-        " ရိုက်ကူးပြသထားပါတယ်။\n\n"
-        "Ashita No Joe ခေါ် Tomorrow's Joe က Season အားဖြင့် ၂ ခု ထိ"
-        " ထွက်ရှိထားပါတယ်။\n\n"
+        "🥊 **Ashita No Joe (Tomorrow's Joe) အကြောင်း**\n"
+        "━━━━━━━━━━━━━━━━━━━━━━\n"
+        "🌟 အာရှနှင့် ကမ္ဘာ့လက်ဝှေ့အန်နီမေးရှင်းသမိုင်းတွင် အထင်ကရ အကောင်းဆုံး"
+        " ဂန္တဝင်လက်ရာ တစ်ခုဖြစ်ပြီး လူငယ်ဘဝ ရုန်းကန်လှုပ်ရှားမှုများကို"
+        " ရင်နင့်ဖွယ် ရိုက်ကူးပြသထားပါတယ်။\n\n"
+        "📺 **Season အချက်အလက်များ:**\n"
         "• Season 1 - Episode 79\n"
         "• Season 2 - Episode 47\n"
-        "• Total Episode: 126\n\n"
-        "• Released Date: (1970 - 1981)\n"
-        "• IMDb 8.2/10\n"
-        "• Running Time: Avg 25 min\n\n"
-        "👑 Member ကြေး ၅၀၀၀ကျပ် (5k)\n\n"
-        "⚠️ **Ashita No Joe Series တစ်ခုတည်း အတွက်သာ ဖြစ်သည်။**\n\n"
-        "ဒီဇာတ်ကားကို ကျွန်ုပ်တို့ Channel မှာ မြန်မာစာတန်းထိုးဖြင့် အပြည့်အစုံ"
-        " ကြည့်ရှုနိုင်ပါတယ်။"
+        "• Total Episodes - 126 ပိုင်းတိတိ\n\n"
+        "📅 **ထွက်ရှိသည့်ခုနှစ်:** 1970 - 1981\n"
+        "⭐ **IMDb Rating:** 8.2 / 10\n\n"
+        "💰 **Member ကြေး:** ၅,၀၀၀ ကျပ် (5k)\n"
+        "⚠️ *(Ashita No Joe Series တစ်ခုတည်းအတွက် သီးသန့်ဖြစ်သည်)*\n\n"
+        "✨ မြန်မာစာတန်းထိုးဖြင့် အပြည့်အစုံကို ကျွန်ုပ်တို့ ချန်နယ်တွင်"
+        " ကြည့်ရှုနိုင်ပါပြီ!"
     )
     bot.send_message(chat_id, joe_text, parse_mode="Markdown")
 
   elif call.data == "payment_info":
     bot.answer_callback_query(call.id)
     pay_text = (
-        f"💳 **Member ကြေး ပေးချေရန် အချက်အလက်များ**\n\n"
-        f"• KBZ Pay: `{KAY_PHONE}`\n"
-        f"• Wave Pay: `{WAVE_PHONE}`\n"
-        f"• Account Name: `{ACCOUNT_NAME}`\n"
-        f"• ကျသင့်ငွေ: ၅,၀၀၀ ကျပ် (Joe Series တစ်ခု တည်းအတွက် သီးသန့်)\n\n"
-        "ငွေလွှဲပြီးပါက Screenshot နှင့်တကွ Admin ထံသို့ ဆက်သွယ်ပေးပါရန်"
-        " မေတ္တာရပ်ခံအပ်ပါတယ်။"
+        "💳 **Member ကြေး ပေးချေရန် အချက်အလက်များ**\n"
+        "━━━━━━━━━━━━━━━━━━━━━━\n"
+        f"• 💸 KBZ Pay: `{KAY_PHONE}`\n"
+        f"• 💸 Wave Pay: `{WAVE_PHONE}`\n"
+        f"• 👤 Account Name: `{ACCOUNT_NAME}`\n"
+        f"• 💵 ကျသင့်ငွေ: ၅,၀၀၀ ကျပ် (Joe Series သီးသန့်)\n\n"
+        "📷 ငွေလွှဲပြီးပါက Screenshot နှင့်တကွ Admin ထံသို့ တိုက်ရိုက်ဆက်သွယ်ပေးပါ"
+        " ခင်ဗျာ။ 🙏"
     )
     bot.send_message(chat_id, pay_text, parse_mode="Markdown")
 
   elif call.data == "premium_info":
     bot.answer_callback_query(call.id)
     prem_text = (
-        "👑 **Nasspar's Premium Channel**\n\n"
-        "လက်ရှိတွင် Premium Channel သီးသန့် မဖွင့်လှစ်သေးပါ။ ဝန်ဆောင်မှုအသစ်များ"
-        " ထွက်ရှိပါက ဤ Bot မှတစ်ဆင့် အသိပေးသွားပါမည်။ 📵"
+        "👑 **Nasspar's Premium Channel**\n"
+        "━━━━━━━━━━━━━━━━━━━━━━\n"
+        "🚀 လက်ရှိတွင် Premium Channel သီးသန့်ကြီးအနေဖြင့် မဖွင့်လှစ်သေးပါ။"
+        " ဝန်ဆောင်မှုအသစ်များ ထွက်ရှိလာပါက ဤ Bot မှတစ်ဆင့် အမြန်ဆုံး"
+        " အသိပေးသွားပါမည်။ စောင့်မျှော်အားပေးကြပါဦး ခင်ဗျာ။ 🌟"
     )
     bot.send_message(chat_id, prem_text, parse_mode="Markdown")
 
@@ -221,6 +224,7 @@ def callback_handler(call):
 def handle_text_messages(message):
   text = message.text.lower()
 
+  # ငွေပေးချေမှုဆိုင်ရာ မေးခွန်းများ
   if any(
       kw in text
       for kw in [
@@ -238,16 +242,18 @@ def handle_text_messages(message):
       ]
   ):
     reply = (
-        f"💳 **Member ကြေး ပေးချေရန် အချက်အလက်များ**\n\n"
-        f"• ကျသင့်ငွေ: ၅,၀၀၀ ကျပ် (Joe Series တစ်ခုတည်းအတွက် သီးသန့်)\n"
-        f"• KBZ Pay: `{KAY_PHONE}`\n"
-        f"• Wave Pay: `{WAVE_PHONE}`\n"
-        f"• Account Name: `{ACCOUNT_NAME}`\n\n"
-        "ငွေလွှဲပြီးပါက Screenshot နှင့်တကွ Admin ထံသို့ ဆက်သွယ်ပေးပါရန်"
+        "💳 **Member ကြေး ပေးချေရန် အချက်အလက်များ**\n"
+        "━━━━━━━━━━━━━━━━━━━━━━\n"
+        f"• 💵 ကျသင့်ငွေ: ၅,၀၀၀ ကျပ် (Joe Series တစ်ခုတည်းအတွက် သီးသန့်)\n"
+        f"• 💸 KBZ Pay: `{KAY_PHONE}`\n"
+        f"• 💸 Wave Pay: `{WAVE_PHONE}`\n"
+        f"• 👤 Account Name: `{ACCOUNT_NAME}`\n\n"
+        "📷 ငွေလွှဲပြီးပါက Screenshot နှင့်တကွ Admin ထံသို့ ဆက်သွယ်ပေးပါရန်"
         " မေတ္တာရပ်ခံအပ်ပါတယ်။"
     )
-    bot.reply_to(message, reply)
+    bot.reply_to(message, reply, parse_mode="Markdown")
 
+  # ဇာတ်ကား အချက်အလက်ဆိုင်ရာ မေးခွန်းများ
   elif any(
       kw in text
       for kw in [
@@ -263,25 +269,73 @@ def handle_text_messages(message):
       ]
   ):
     reply = (
-        "🥊 **Ashita No Joe အချက်အလက်များ:**\n\n"
-        "• Season 1 - Episode 79\n"
-        "• Season 2 - Episode 47\n"
-        "• Total Episode: 126\n"
-        "• IMDb: 8.2/10\n\n"
+        "🥊 **Ashita No Joe အချက်အလက်များ:**\n"
+        "━━━━━━━━━━━━━━━━━━━━━━\n"
+        "• 📺 Season 1 - Episode 79\n"
+        "• 📺 Season 2 - Episode 47\n"
+        "• 🎬 Total Episodes: 126 ပိုင်း\n"
+        "• ⭐ IMDb Rating: 8.2/10\n\n"
         "⚠️ **Ashita No Joe Series တစ်ခုတည်းအတွက်သာ ဖြစ်ပါသည်။**\n"
         "လက်ရှိတွင် တခြားကားများအတွက် Premium သီးသန့် မဖွင့်လှစ်သေးပါ။"
     )
-    bot.reply_to(message, reply)
+    bot.reply_to(message, reply, parse_mode="Markdown")
 
+  # သမိုင်းကြောင်း၊ နောက်ခံ သို့မဟုတ် သမိုင်း မေးခွန်းများအတွက်
+  elif any(
+      kw in text
+      for kw in [
+          "သမိုင်း",
+          "history",
+          "ဇာတ်ကြောင်း",
+          "နောက်ခံ",
+          "story",
+          "about",
+          "ဘယ်လို",
+          "ဇာတ်ကောင်",
+      ]
+  ):
+    reply = (
+        "📖 **Ashita No Joe ၏ နောက်ခံသမိုင်းကြောင်း:**\n"
+        "━━━━━━━━━━━━━━━━━━━━━━\n"
+        "ယဘုယျအားဖြင့် **Ashita no Joe** (Tomorrow's Joe) သည် ဂျပန်နိုင်ငံ၏"
+        " အထင်ကရ ဂန္တဝင်လက်ဝှေ့မန်ဂါနှင့် အန်နီမေးရှင်း ဖြစ်ပါသည်။ Yabuki"
+        " Joe အမည်ရှိ လူငယ်လေးတစ်ဦး ဆင်းရဲမွဲတေမှု၊ လမ်းပေါ်ဘဝမှသည်"
+        " လက်ဝှေ့ကြိုးဝိုင်းအတွင်းသို့ ရောက်ရှိလာပုံ၊ ပြိုင်ဘက်များနှင့်"
+        " ရင်ဆိုင်ရုန်းကန်ပုံများကို အလွန်ရင်သပ်ရှုမောဖွယ်"
+        " တင်ဆက်ထားခြင်းဖြစ်ပါသည်။\n\n"
+        "🥊 ၎င်း၏ ကြေကွဲဖွယ်ကောင်းသော ဇာတ်သိမ်းပိုင်းနှင့် လူငယ်ဘဝ ရုန်းကန်လှုပ်ရှားမှု"
+        " အခိုက်အတန့်များသည် ကမ္ဘာတစ်ဝှမ်းရှိ ပရိသတ်များကို ယနေ့တိုင်"
+        " ဖမ်းစားထားဆဲ ဖြစ်ပါတယ်။ ✨"
+    )
+    bot.reply_to(message, reply, parse_mode="Markdown")
+
+  # နာမည်ကြီးမှု၊ Popularity သို့မဟုတ် လူကြိုက်များမှု မေးခွန်းများ
+  elif any(
+      kw in text
+      for kw in ["popular", "နာမည်ကြီး", "လူကြိုက်များ", "top", "best", "rating"]:
+  ):
+    reply = (
+        "🌟 **Ashita No Joe ၏ နာမည်ကြီးမှုနှင့် အောင်မြင်မှု:**\n"
+        "━━━━━━━━━━━━━━━━━━━━━━\n"
+        "• 🏆 ဂျပန်နိုင်ငံ၏ အချိန်ကာလတိုင်းတွင် အကောင်းဆုံးနှင့် အထင်ရှားဆုံး"
+        " အားကစားအန်နီမေးရှင်းစာရင်းဝင် တစ်ခုဖြစ်ပါသည်။\n"
+        "• ⭐ IMDb တွင် 8.2 အထိ မြင့်မားသော Rating ရရှိထားပြီး၊"
+        " ဝေဖန်ရေးသမားများနှင့် ပရိသတ်များ၏ အသိအမှတ်ပြုမှုကို အပြည့်အဝ"
+        " ရရှိထားသော လက်ရာမြောက် ဇာတ်ကားကောင်း ဖြစ်ပါသည်။ 🔥"
+    )
+    bot.reply_to(message, reply, parse_mode="Markdown")
+
+  # အခြား မသိရှိသေးသော စကားလုံးများအတွက် AI Assistant ပုံစံဖြင့် Admin ဆီ လွှဲပေးရန်
   else:
     ai_reply = (
-        "🤖 **Nasspar's Bot AI Assistant:**\n\n"
-        "မိတ်ဆွေ မေးမြန်းထားသော အချက်အလက်အတွက် အောက်ပါ Admin များထံသို့"
-        " တိုက်ရိုက် ဆက်သွယ်စုံစမ်းနိုင်ပါတယ် ခင်ဗျာ-\n"
-        "• Admin (1): @Nazzpar\n"
-        "• Admin (2): @hikarikenn"
+        "🤖 **Nasspar's Bot AI Assistant:**\n"
+        "━━━━━━━━━━━━━━━━━━━━━━\n"
+        "မိတ်ဆွေ မေးမြန်းထားသော အချက်အလက်နှင့် ပတ်သက်၍ အသေးစိတ်သိရှိလိုပါက"
+        " အောက်ပါ Admin များထံသို့ တိုက်ရိုက် ဆက်သွယ်စုံစမ်းနိုင်ပါတယ် ခင်ဗျာ-👇\n\n"
+        "• 💬 Admin (1): @Nazzpar\n"
+        "• 💬 Admin (2): @hikarikenn"
     )
-    bot.reply_to(message, ai_reply)
+    bot.reply_to(message, ai_reply, parse_mode="Markdown")
 
 
 if __name__ == "__main__":
