@@ -74,7 +74,7 @@ def show_stats(message):
       message,
       f"📊 **Bot Statistics Dashboard:**\n\n👥 စုစုပေါင်း အသုံးပြုသူ (Total Users):"
       f" `{total_users}` ယောက် 🚀",
-      parse_Mode="Markdown",
+      parse_mode="Markdown",
   )
 
 
@@ -224,7 +224,6 @@ def callback_handler(call):
 def handle_text_messages(message):
   text = message.text.lower()
 
-  # ငွေပေးချေမှုဆိုင်ရာ မေးခွန်းများ
   if any(
       kw in text
       for kw in [
@@ -253,7 +252,6 @@ def handle_text_messages(message):
     )
     bot.reply_to(message, reply, parse_mode="Markdown")
 
-  # ဇာတ်ကား အချက်အလက်ဆိုင်ရာ မေးခွန်းများ
   elif any(
       kw in text
       for kw in [
@@ -280,7 +278,6 @@ def handle_text_messages(message):
     )
     bot.reply_to(message, reply, parse_mode="Markdown")
 
-  # သမိုင်းကြောင်း၊ နောက်ခံ သို့မဟုတ် သမိုင်း မေးခွန်းများအတွက်
   elif any(
       kw in text
       for kw in [
@@ -309,7 +306,6 @@ def handle_text_messages(message):
     )
     bot.reply_to(message, reply, parse_mode="Markdown")
 
-  # နာမည်ကြီးမှု၊ Popularity သို့မဟုတ် လူကြိုက်များမှု မေးခွန်းများ
   elif any(
       kw in text
       for kw in ["popular", "နာမည်ကြီး", "လူကြိုက်များ", "top", "best", "rating"]:
@@ -325,7 +321,6 @@ def handle_text_messages(message):
     )
     bot.reply_to(message, reply, parse_mode="Markdown")
 
-  # အခြား မသိရှိသေးသော စကားလုံးများအတွက် AI Assistant ပုံစံဖြင့် Admin ဆီ လွှဲပေးရန်
   else:
     ai_reply = (
         "🤖 **Nasspar's Bot AI Assistant:**\n"
