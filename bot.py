@@ -357,7 +357,6 @@ def callback_handler(call):
     )
     bot.send_message(chat_id, prem_text, parse_mode="Markdown")
 
-  # Creator ဘက်မှ Approve နှိပ်လိုက်သောအခါ
   elif call.data.startswith("approve_"):
     target_uid = call.data.split("_")[1]
     bot.answer_callback_query(call.id, "✅ အတည်ပြုပြီးပါပြီ။")
@@ -389,7 +388,7 @@ def callback_handler(call):
           target_uid, success_text, parse_mode="Markdown", reply_markup=markup_prem
       )
     except Exception as e:
-      print(f"စီးရီးလင့်ပို့ရာတွင် အမှားဖြစ်သည်: {e}")
+      print(f"လင့်ခ်ပို့ရာတွင် အမှားဖြစ်သည်: {e}")
 
     try:
       bot.edit_message_reply_markup(chat_id, call.message.message_id, reply_markup=None)
@@ -401,7 +400,6 @@ def callback_handler(call):
     except Exception:
       pass
 
-  # Creator ဘက်မှ Reject နှိပ်လိုက်သောအခါ
   elif call.data.startswith("reject_"):
     target_uid = call.data.split("_")[1]
     bot.answer_callback_query(call.id, "❌ ပယ်ဖျက်လိုက်ပါပြီ။")
@@ -425,7 +423,7 @@ def callback_handler(call):
       pass
 
 
-# User ထံမှ Screenshot (ပုံ) ပို့လာခြင်းကို စစ်ဆေးမည့် Handler
+# 1. Screenshot (ပုံ) လက်ခံပြီး Creator ဆီ ပို့မည့် Handler
 @bot.message_handler(content_types=["photo"])
 def handle_user_screenshot(message):
   user = message.from_user
@@ -434,14 +432,12 @@ def handle_user_screenshot(message):
   username = f"@{user.username}" if user.username else "Username မရှိပါ"
   current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-  # 1. User ဆီသို့ အလိုအလျောက် ပြန်စာပို့ရန်
   auto_reply = (
       "Admin ထံ ငွေလွှဲပြေစာပေးပို့ပြီးပါပြီ ၂၄ နာရီ အတွင်း ပြန်လည်ဖြေကြားပေးသွားပါမည်။"
       " (အားပေးမှု အတွက် အထူးကျေးဇူးတင်ရှိပါတယ်။)"
   )
   bot.reply_to(message, auto_reply)
 
-  # 2. Creator ထံသို့ ဓာတ်ပုံနှင့် အချက်အလက်အပြည့်အစုံ ပို့ပေးရန်
   caption_text = (
       f"📥 **[New Payment Screenshot Received]** 📸\n"
       f"━━━━━━━━━━━━━━━━━━━━━━\n"
@@ -474,10 +470,17 @@ def handle_user_screenshot(message):
     print(f"Creator ဆီသို့ ပုံပို့ရာတွင် အမှားဖြစ်သည်: {e}")
 
 
-# Groq API (Llama 3) ကို အသုံးပြု၍ သာမန်စာသားများ တုံ့ပြန်မည့် Handler
-@bot.message_handler(func=lambda message: True)
+# 2. သာမန်စာသားများအတွက် Groq AI (Llama 3) ဖြင့် တုံ့ပြန်မည့် Handler (ပုံများကို ဝင်မဖမ်းစေရန် ခြွင်းချက်ထည့်ထားသည်)
+@bot.message_handler(
+    func=lambda message: True,
+    content_types=["text", "audio", "document", "video", "voice"],
+)
 def handle_groq_chat(message):
   try:
+    # စာသား (Text) သို့မဟုတ် content မပါပါက ကျော်ရန်
+    if not message.text:
+      return
+
     user_text = message.text
 
     completion = groq_client.chat.completions.create(
