@@ -2031,7 +2031,7 @@ def callback_handler(call):
             chat_id,
             "👑 <b>Nasspar's Premium Channel</b>\n"
             "━━━━━━━━━━━━━━━━━━━━━━\n"
-            "Premium Channel ဝန်ဆောင်မှုအကြောင်း သိရှိလိုပါက Admin ထံ ဆက်သွယ်ပါ။",
+            "👑လက်ရှိတွင် Premium Channel သီးသန် ဖွင့်လှစ်ထားခြင်း မရှိသေးပါ။ ဝန်ဆောင်မှု အသစ်များပေါ်ထွက်လာပါက ဤ bot မှတစ်ဆင့် အကြောင်းကြားပေးသွားပါမည်။💘။",
             parse_mode="HTML"
         )
     elif data in FAQ_ANSWERS:
