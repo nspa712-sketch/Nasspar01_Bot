@@ -224,6 +224,7 @@ def callback_handler(call):
 def handle_text_messages(message):
   text = message.text.lower()
 
+  # ငွေပေးချေမှုဆိုင်ရာ
   if any(
       kw in text
       for kw in [
@@ -252,6 +253,7 @@ def handle_text_messages(message):
     )
     bot.reply_to(message, reply, parse_mode="Markdown")
 
+  # အချက်အလက်ဆိုင်ရာ
   elif any(
       kw in text
       for kw in [
@@ -278,6 +280,7 @@ def handle_text_messages(message):
     )
     bot.reply_to(message, reply, parse_mode="Markdown")
 
+  # သမိုင်းကြောင်းဆိုင်ရာ
   elif any(
       kw in text
       for kw in [
@@ -306,9 +309,10 @@ def handle_text_messages(message):
     )
     bot.reply_to(message, reply, parse_mode="Markdown")
 
+  # လူကြိုက်များမှုဆိုင်ရာ
   elif any(
       kw in text
-      for kw in ["popular", "နာမည်ကြီး", "လူကြိုက်များ", "top", "best", "rating"]:
+      for kw in ["popular", "နာမည်ကြီး", "လူကြိုက်များ", "top", "best", "rating"]
   ):
     reply = (
         "🌟 **Ashita No Joe ၏ နာမည်ကြီးမှုနှင့် အောင်မြင်မှု:**\n"
@@ -321,6 +325,7 @@ def handle_text_messages(message):
     )
     bot.reply_to(message, reply, parse_mode="Markdown")
 
+  # Fallback
   else:
     ai_reply = (
         "🤖 **Nasspar's Bot AI Assistant:**\n"
