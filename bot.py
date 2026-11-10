@@ -1,18 +1,43 @@
 import os
 from datetime import datetime
+from groq import Groq
 import telebot
 from telebot import types
 
+# API Keys များကို Environment Variables မှ ယူခြင်း
 TOKEN = os.environ.get("BOT_TOKEN")
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
+
+# Groq Client ကို Configure လုပ်ခြင်း
+groq_client = Groq(api_key=GROQ_API_KEY)
+
+# Bot Settings
 CHANNEL_USERNAME = "@seriesmoviesplanet007"
 CREATOR_ID = 5188275898
 
 KAY_PHONE = "09448948562"
 WAVE_PHONE = "09448948562"
 ACCOUNT_NAME = "Nyein Sopyay Aung"
+PREMIUM_CHANNEL_LINK = "https://t.me/+sFoFxmAXOVI5ZTg1"
 
 bot = telebot.TeleBot(TOKEN)
 USER_DATA_FILE = "unique_users.txt"
+MEMBERS_DATA_FILE = "members_list.txt"
+
+# Bot ရဲ့ Character နှင့် အချက်အလက်များကို System Prompt အဖြစ် သတ်မှတ်ခြင်း
+SYSTEM_PROMPT = f"""
+သင်သည် Nasspar's Bot ၏ AI Assistant ဖြစ်သည်။ Telegram channel {CHANNEL_USERNAME} တွင် 'Ashita No Joe' (Tomorrow's Joe) ဇာတ်ကားကို မြန်မာစာတန်းထိုးဖြင့် ဖြန့်ချိပေးနေသည်။
+အဓိက အချက်အလက်များ:
+- ဇာတ်ကားအကြောင်း: Ashita No Joe (Season 1 - 79 eps, Season 2 - 47 eps, Total 126 eps, IMDb 8.2/10, ထွက်ရှိခုနှစ် 1970-1981) ဂန္တဝင်လက်ဝှေ့ အန်နီမေးရှင်း။
+- Member ကြေး: ၅,၀၀၀ ကျပ် (Joe Series တစ်ခုတည်းအတွက် သီးသန့်)။
+- ငွေပေးချေရန်: KBZ Pay ({KAY_PHONE}) သို့မဟုတ် Wave Pay ({WAVE_PHONE}), Account Name: {ACCOUNT_NAME}။ 
+- Admin များ: @Nazzpar နှင့် @hikarikenn။
+
+စည်းမျဉ်းများ:
+- အသုံးပြုသူများကို ဖော်ရွေစွာ၊ ယဉ်ကျေးစွာဖြင့် မြန်မာဘာသာဖြင့် သဘာဝကျကျ ဖြေကြားပါ။
+- ဈေးနှုန်း၊ ငွေပေးချေမှု၊ ဇာတ်ကားအကြောင်း သို့မဟုတ် သမိုင်းကြောင်းမေးလျှင် အထပါ အချက်အလက်များကို အခြေခံ၍ ဉာဏ်ကောင်းစွာ ဖြေပေးပါ။
+- အခြားအသေးစိတ် အခက်အခဲများရှိပါက Admin များ (@Nazzpar, @hikarikenn) ထံ တိုက်ရိုက်ဆက်သွယ်ရန် ညွှန်ကြားပါ။
+"""
 
 
 def track_and_count_user(user_id):
@@ -33,6 +58,13 @@ def track_and_count_user(user_id):
         f.write(f"{uid}\n")
 
   return len(users), is_new
+
+
+def save_member_record(user_id, name, username):
+  current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+  record = f"{user_id}|{name}|@{username if username else 'None'}|{current_time}\n"
+  with open(MEMBERS_DATA_FILE, "a", encoding="utf-8") as f:
+    f.write(record)
 
 
 def log_user_activity(message, action="စတင်အသုံးပြုခြင်း (/start)"):
@@ -78,6 +110,70 @@ def show_stats(message):
   )
 
 
+@bot.message_handler(commands=["members"])
+def show_members_list(message):
+  if message.from_user.id != CREATOR_ID:
+    return
+
+  if not os.path.exists(MEMBERS_DATA_FILE):
+    bot.reply_to(message, "📭 လက်ရှိတွင် Member ဝင်ထားသူ စာရင်း မရှိသေးပါ။")
+    return
+
+  members_text = "👑 **Ashita No Joe - Verified Members List** 👑\n━━━━━━━━━━━━━━━━━━━━━━\n"
+  count = 0
+  with open(MEMBERS_DATA_FILE, "r", encoding="utf-8") as f:
+    for line in f:
+      parts = line.strip().split("|")
+      if len(parts) == 4:
+        uid, name, uname, t = parts
+        count += 1
+        members_text += f"{count}. {name} ({uname}) [ID: `{uid}`]\n   ⏱ {t}\n\n"
+
+  members_text += f"📊 **စုစုပေါင်း Member ဝင်အရေအတွက်:** `{count}` ယောက်"
+  bot.reply_to(message, members_text, parse_mode="Markdown")
+
+
+@bot.message_handler(commands=["check"])
+def check_specific_user(message):
+  if message.from_user.id != CREATOR_ID:
+    return
+
+  try:
+    args = message.text.split()
+    if len(args) < 2:
+      bot.reply_to(
+          message,
+          "⚠️ **အသုံးပြုပုံ:** `/check <user_id>`\nဥပမာ - `/check 5188275898`",
+          parse_mode="Markdown",
+      )
+      return
+
+    target_user_id = int(args[1])
+    is_sub = check_user_subscription(target_user_id)
+
+    if is_sub:
+      bot.reply_to(
+          message,
+          f"✅ **User ID:** `{target_user_id}` သည် Channel ကို Join"
+          " ထားပြီးသားဖြစ်ပါသည်!",
+          parse_mode="Markdown",
+      )
+    else:
+      bot.reply_to(
+          message,
+          f"❌ **User ID:** `{target_user_id}` သည် Channel ကို Join"
+          " မထားသေးပါ (သို့မဟုတ်) Left ထွက်သွားပါပြီ!",
+          parse_mode="Markdown",
+      )
+  except ValueError:
+    bot.reply_to(
+        message,
+        "⚠️ ကျေးဇူးပြု၍ မှန်ကန်သော User ID (ဂဏန်းများသာ) ရိုက်ထည့်ပါ!",
+    )
+  except Exception as e:
+    bot.reply_to(message, f"❌ Error: {e}")
+
+
 def check_user_subscription(user_id):
   try:
     member = bot.get_chat_member(CHANNEL_USERNAME, user_id)
@@ -94,8 +190,8 @@ def show_main_menu(chat_id):
       "━━━━━━━━━━━━━━━━━━━━━━\n"
       "🤖 ကျွန်တော်ကတော့ **Nasspar's Bot** ရဲ့ AI Assistant ပဲ ဖြစ်ပါတယ်ခင်ဗျာ။\n\n"
       "🎬 အောက်ပါ Menu ခလုတ်များကို အသုံးပြု၍ လိုအပ်သည်များကို လေ့လာနိုင်သလို၊\n"
-      "💬 **Ashita No Joe** ဇာတ်ကားအကြောင်း၊ သမိုင်းကြောင်းများကိုလည်း စာတိုပေးပို့၍"
-      " လွတ်လပ်စွာ မေးမြန်းနိုင်ပါတယ် 🧠✨"
+      "💬 **Ashita No Joe** အကြောင်းနှင့် ပတ်သက်ပြီး Groq AI နဲ့ လွတ်လပ်စွာ"
+      " စကားပြောမေးမြန်းနိုင်ပါတယ် 🧠✨"
   )
 
   markup = types.InlineKeyboardMarkup(row_width=1)
@@ -103,7 +199,8 @@ def show_main_menu(chat_id):
       "🥊 Ashita No Joe Series အကြောင်း လေ့လာရန်", callback_data="about_joe"
   )
   btn2 = types.InlineKeyboardButton(
-      "💳 Member ကြေး ငွေပေးချေရန်", callback_data="payment_info"
+      "💳 Joe Series အတွက် Member ကြေး ငွေပေးချေရန်",
+      callback_data="payment_info",
   )
   btn3 = types.InlineKeyboardButton(
       "🎬 Ashita No Joe အစမ်းကြည့်ရန် (Channel)",
@@ -188,25 +285,66 @@ def callback_handler(call):
         "📅 **ထွက်ရှိသည့်ခုနှစ်:** 1970 - 1981\n"
         "⭐ **IMDb Rating:** 8.2 / 10\n\n"
         "💰 **Member ကြေး:** ၅,၀၀၀ ကျပ် (5k)\n"
-        "⚠️ *(Ashita No Joe Series တစ်ခုတည်းအတွက် သီးသန့်ဖြစ်သည်)*\n\n"
-        "✨ မြန်မာစာတန်းထိုးဖြင့် အပြည့်အစုံကို ကျွန်ုပ်တို့ ချန်နယ်တွင်"
-        " ကြည့်ရှုနိုင်ပါပြီ!"
+        "⚠️ *(Ashita No Joe Series တစ်ခုတည်းအတွက် သီးသန့်ဖြစ်သည်)*"
     )
     bot.send_message(chat_id, joe_text, parse_mode="Markdown")
 
   elif call.data == "payment_info":
     bot.answer_callback_query(call.id)
-    pay_text = (
+    pay_prompt_text = (
+        "💳 **Member ကြေး ပေးချေရန် ပတ်သတ်၍ အောက်ပါတို့မှ နှစ်သက်ရာကို ရွေးချယ်"
+        " နိုင်ပါတယ်။** ✨"
+    )
+    markup = types.InlineKeyboardMarkup(row_width=1)
+    btn_direct = types.InlineKeyboardButton(
+        "👤 Admin ထံ တိုက်ရိုက် ငွေပေးချေရန်", callback_data="pay_direct"
+    )
+    btn_bot_pay = types.InlineKeyboardButton(
+        "🤖 Bot ထဲ၌ တိုက်ရိုက်ပေးချေပြီး ပြန်ကြားချက် စောင့်ဆိုင်းရန်",
+        callback_data="pay_bot",
+    )
+    markup.add(btn_direct, btn_bot_pay)
+    bot.send_message(
+        chat_id, pay_prompt_text, parse_mode="Markdown", reply_markup=markup
+    )
+
+  elif call.data == "pay_direct":
+    bot.answer_callback_query(call.id)
+    direct_text = (
         "💳 **Member ကြေး ပေးချေရန် အချက်အလက်များ**\n"
         "━━━━━━━━━━━━━━━━━━━━━━\n"
-        f"• 💸 KBZ Pay: `{KAY_PHONE}`\n"
-        f"• 💸 Wave Pay: `{WAVE_PHONE}`\n"
-        f"• 👤 Account Name: `{ACCOUNT_NAME}`\n"
-        f"• 💵 ကျသင့်ငွေ: ၅,၀၀၀ ကျပ် (Joe Series သီးသန့်)\n\n"
+        "• 💸 KBZ Pay:\n"
+        f"`{KAY_PHONE}`\n"
+        "• 💸 Wave Pay:\n"
+        f"`{WAVE_PHONE}`\n"
+        "• 👤 Account Name:\n"
+        f"`{ACCOUNT_NAME}`\n"
+        "• 💵 ကျသင့်ငွေ:\n"
+        "၅,၀၀၀ ကျပ် (Joe Series သီးသန့်)\n\n"
         "📷 ငွေလွှဲပြီးပါက Screenshot နှင့်တကွ Admin ထံသို့ တိုက်ရိုက်ဆက်သွယ်ပေးပါ"
-        " ခင်ဗျာ။ 🙏"
+        " ခင်ဗျာ။ 🙏\n\n"
+        "• Owner Acc: @Nazzpar\n"
+        "• Admin Acc: @hikarikenn"
     )
-    bot.send_message(chat_id, pay_text, parse_mode="Markdown")
+    bot.send_message(chat_id, direct_text, parse_mode="Markdown")
+
+  elif call.data == "pay_bot":
+    bot.answer_callback_query(call.id)
+    bot_pay_text = (
+        "💳 **Member ကြေး ပေးချေရန် အချက်အလက်များ**\n"
+        "━━━━━━━━━━━━━━━━━━━━━━\n"
+        "• 💸 KBZ Pay:\n"
+        f"`{KAY_PHONE}`\n"
+        "• 💸 Wave Pay:\n"
+        f"`{WAVE_PHONE}`\n"
+        "• 👤 Account Name:\n"
+        f"`{ACCOUNT_NAME}`\n"
+        "• 💵 ကျသင့်ငွေ:\n"
+        "၅,၀၀၀ ကျပ် (Joe Series သီးသန့်)\n\n"
+        "⚠️ **မိတ်ဆွေ၏ ငွေလွှဲပြေစာ ကို Bot ထဲသို့ပေးပို့ ၍ ပြန်ကြားချက်အား"
+        " စောင့်ဆိုင်းပါရန်။** 📸✨"
+    )
+    bot.send_message(chat_id, bot_pay_text, parse_mode="Markdown")
 
   elif call.data == "premium_info":
     bot.answer_callback_query(call.id)
@@ -215,129 +353,159 @@ def callback_handler(call):
         "━━━━━━━━━━━━━━━━━━━━━━\n"
         "🚀 လက်ရှိတွင် Premium Channel သီးသန့်ကြီးအနေဖြင့် မဖွင့်လှစ်သေးပါ။"
         " ဝန်ဆောင်မှုအသစ်များ ထွက်ရှိလာပါက ဤ Bot မှတစ်ဆင့် အမြန်ဆုံး"
-        " အသိပေးသွားပါမည်။ စောင့်မျှော်အားပေးကြပါဦး ခင်ဗျာ။ 🌟"
+        " အသိပေးသွားပါမည်။ 🌟"
     )
     bot.send_message(chat_id, prem_text, parse_mode="Markdown")
 
+  # Creator ဘက်မှ Approve နှိပ်လိုက်သောအခါ
+  elif call.data.startswith("approve_"):
+    target_uid = call.data.split("_")[1]
+    bot.answer_callback_query(call.id, "✅ အတည်ပြုပြီးပါပြီ။")
 
+    try:
+      chat_member = bot.get_chat(target_uid)
+      u_name = f"{chat_member.first_name or ''} {chat_member.last_name or ''}".strip()
+      u_uname = chat_member.username or "None"
+    except Exception:
+      u_name = "Unknown User"
+      u_uname = "None"
+
+    save_member_record(target_uid, u_name, u_uname)
+
+    success_text = (
+        "ဂုဏ်ယူပါတယ်..👏\n"
+        "မိတ်ဆွေ Ashita No Joe Series အတွက် တစ်သက် စာ Member ဝင် တစ်ဦးဖြစ်သွားပါပြီ..👑\n"
+        "ဝယ်ယူ အားပေးမှုအတွက် အထူး ကျေးဇူးတင်ရှိပါတယ်ခင်ဗျာ..✨"
+    )
+    markup_prem = types.InlineKeyboardMarkup()
+    btn_prem_link = types.InlineKeyboardButton(
+        "Ashita No Joe Premium Channel ထဲသို့ ဝင်ရန်။👑",
+        url=PREMIUM_CHANNEL_LINK,
+    )
+    markup_prem.add(btn_prem_link)
+
+    try:
+      bot.send_message(
+          target_uid, success_text, parse_mode="Markdown", reply_markup=markup_prem
+      )
+    except Exception as e:
+      print(f"စီးရီးလင့်ပို့ရာတွင် အမှားဖြစ်သည်: {e}")
+
+    try:
+      bot.edit_message_reply_markup(chat_id, call.message.message_id, reply_markup=None)
+      bot.send_message(
+          chat_id,
+          f"✅ User ID (`{target_uid}`) အား Member အဖြစ် အောင်မြင်စွာ ခွင့်ပြုပေးလိုက်ပါပြီ။",
+          parse_mode="Markdown",
+      )
+    except Exception:
+      pass
+
+  # Creator ဘက်မှ Reject နှိပ်လိုက်သောအခါ
+  elif call.data.startswith("reject_"):
+    target_uid = call.data.split("_")[1]
+    bot.answer_callback_query(call.id, "❌ ပယ်ဖျက်လိုက်ပါပြီ။")
+
+    try:
+      bot.send_message(
+          target_uid,
+          "❌ တောင်းပန်ပါတယ်ခင်ဗျာ။ တင်ပြလာသော ငွေလွှဲပြေစာ (Screenshot) မှာ မှန်ကန်မှုမရှိပါ သို့မဟုတ် အတည်မပြုနိုင်ပါ။ ကျေးဇူးပြု၍ Admin ထံ တိုက်ရိုက်ဆက်သွယ်စုံစမ်းပေးပါရန် မေတ္တာရပ်ခံအပ်ပါသည်။ 🙏",
+      )
+    except Exception as e:
+      print(f"ပယ်ဖျက်ကြောင်းအကြောင်းကြားရာတွင် အမှားဖြစ်သည်: {e}")
+
+    try:
+      bot.edit_message_reply_markup(chat_id, call.message.message_id, reply_markup=None)
+      bot.send_message(
+          chat_id,
+          f"❌ User ID (`{target_uid}`) ၏ ငွေလွှဲပြေစာကို ပယ်ဖျက်လိုက်ပါပြီ။",
+          parse_mode="Markdown",
+      )
+    except Exception:
+      pass
+
+
+# User ထံမှ Screenshot (ပုံ) ပို့လာခြင်းကို စစ်ဆေးမည့် Handler
+@bot.message_handler(content_types=["photo"])
+def handle_user_screenshot(message):
+  user = message.from_user
+  user_id = user.id
+  name = f"{user.first_name or ''} {user.last_name or ''}".strip()
+  username = f"@{user.username}" if user.username else "Username မရှိပါ"
+  current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+  # 1. User ဆီသို့ အလိုအလျောက် ပြန်စာပို့ရန်
+  auto_reply = (
+      "Admin ထံ ငွေလွှဲပြေစာပေးပို့ပြီးပါပြီ ၂၄ နာရီ အတွင်း ပြန်လည်ဖြေကြားပေးသွားပါမည်။"
+      " (အားပေးမှု အတွက် အထူးကျေးဇူးတင်ရှိပါတယ်။)"
+  )
+  bot.reply_to(message, auto_reply)
+
+  # 2. Creator ထံသို့ ဓာတ်ပုံနှင့် အချက်အလက်အပြည့်အစုံ ပို့ပေးရန်
+  caption_text = (
+      f"📥 **[New Payment Screenshot Received]** 📸\n"
+      f"━━━━━━━━━━━━━━━━━━━━━━\n"
+      f"👤 **အမည်:** {name}\n"
+      f"🔗 **Username:** {username}\n"
+      f"🆔 **User ID:** `{user_id}`\n"
+      f"⚡ **လုပ်ဆောင်ချက်:** ငွေလွှဲပြေစာ (Screenshot) ပို့ထားခြင်း\n"
+      f"🕒 **အချိန်:** {current_time}"
+  )
+
+  admin_markup = types.InlineKeyboardMarkup(row_width=2)
+  btn_approve = types.InlineKeyboardButton(
+      "✅ အတည်ပြုရန် (Approve)", callback_data=f"approve_{user_id}"
+  )
+  btn_reject = types.InlineKeyboardButton(
+      "❌ ပယ်ဖျက်ရန် (Reject)", callback_data=f"reject_{user_id}"
+  )
+  admin_markup.add(btn_approve, btn_reject)
+
+  try:
+    photo_file_id = message.photo[-1].file_id
+    bot.send_photo(
+        CREATOR_ID,
+        photo_file_id,
+        caption=caption_text,
+        parse_mode="Markdown",
+        reply_markup=admin_markup,
+    )
+  except Exception as e:
+    print(f"Creator ဆီသို့ ပုံပို့ရာတွင် အမှားဖြစ်သည်: {e}")
+
+
+# Groq API (Llama 3) ကို အသုံးပြု၍ သာမန်စာသားများ တုံ့ပြန်မည့် Handler
 @bot.message_handler(func=lambda message: True)
-def handle_text_messages(message):
-  text = message.text.lower()
+def handle_groq_chat(message):
+  try:
+    user_text = message.text
 
-  # ၁. ငွေပေးချေမှုဆိုင်ရာ မေးခွန်းများ
-  if any(
-      kw in text
-      for kw in [
-          "ဈေး",
-          "ဘယ်လောက်",
-          "ငွေ",
-          "လွှဲ",
-          "ကြေး",
-          "ပေး",
-          "k",
-          "member",
-          "မန်ဘာ",
-          "ဝယ်",
-          "ဖိုး",
-      ]
-  ):
-    reply = (
-        "💳 **Member ကြေး ပေးချေရန် အချက်အလက်များ**\n"
-        "━━━━━━━━━━━━━━━━━━━━━━\n"
-        f"• 💵 ကျသင့်ငွေ: ၅,၀၀၀ ကျပ် (Joe Series တစ်ခုတည်းအတွက် သီးသန့်)\n"
-        f"• 💸 KBZ Pay: `{KAY_PHONE}`\n"
-        f"• 💸 Wave Pay: `{WAVE_PHONE}`\n"
-        f"• 👤 Account Name: `{ACCOUNT_NAME}`\n\n"
-        "📷 ငွေလွှဲပြီးပါက Screenshot နှင့်တကွ Admin ထံသို့ ဆက်သွယ်ပေးပါရန်"
-        " မေတ္တာရပ်ခံအပ်ပါတယ်။"
+    completion = groq_client.chat.completions.create(
+        model="llama-3.3-70b-versatile",
+        messages=[
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": user_text},
+        ],
+        temperature=0.7,
+        max_tokens=500,
     )
-    bot.reply_to(message, reply, parse_mode="Markdown")
 
-  # ၂. သမိုင်းကြောင်းဆိုင်ရာ မေးခွန်းများ (အပေါ်သို့ တင်ထားပြီး)
-  elif any(
-      kw in text
-      for kw in [
-          "သမိုင်း",
-          "history",
-          "ဇာတ်ကြောင်း",
-          "နောက်ခံ",
-          "story",
-          "about",
-          "ဘယ်လို",
-          "ဇာတ်ကောင်",
-      ]
-  ):
-    reply = (
-        "📖 **Ashita No Joe ၏ နောက်ခံသမိုင်းကြောင်း:**\n"
-        "━━━━━━━━━━━━━━━━━━━━━━\n"
-        "ယဘုယျအားဖြင့် **Ashita no Joe** (Tomorrow's Joe) သည် ဂျပန်နိုင်ငံ၏"
-        " အထင်ကရ ဂန္တဝင်လက်ဝှေ့မန်ဂါနှင့် အန်နီမေးရှင်း ဖြစ်ပါသည်။ Yabuki"
-        " Joe အမည်ရှိ လူငယ်လေးတစ်ဦး ဆင်းရဲမွဲတေမှု၊ လမ်းပေါ်ဘဝမှသည်"
-        " လက်ဝှေ့ကြိုးဝိုင်းအတွင်းသို့ ရောက်ရှိလာပုံ၊ ပြိုင်ဘက်များနှင့်"
-        " ရင်ဆိုင်ရုန်းကန်ပုံများကို အလွန်ရင်သပ်ရှုမောဖွယ်"
-        " တင်ဆက်ထားခြင်းဖြစ်ပါသည်။\n\n"
-        "🥊 ၎င်း၏ ကြေကွဲဖွယ်ကောင်းသော ဇာတ်သိမ်းပိုင်းနှင့် လူငယ်ဘဝ ရုန်းကန်လှုပ်ရှားမှု"
-        " အခိုက်အတန့်များသည် ကမ္ဘာတစ်ဝှမ်းရှိ ပရိသတ်များကို ယနေ့တိုင်"
-        " ဖမ်းစားထားဆဲ ဖြစ်ပါတယ်။ ✨"
-    )
-    bot.reply_to(message, reply, parse_mode="Markdown")
-
-  # ၃. လူကြိုက်များမှုဆိုင်ရာ မေးခွန်းများ
-  elif any(
-      kw in text
-      for kw in ["popular", "နာမည်ကြီး", "လူကြိုက်များ", "top", "best", "rating"]
-  ):
-    reply = (
-        "🌟 **Ashita No Joe ၏ နာမည်ကြီးမှုနှင့် အောင်မြင်မှု:**\n"
-        "━━━━━━━━━━━━━━━━━━━━━━\n"
-        "• 🏆 ဂျပန်နိုင်ငံ၏ အချိန်ကာလတိုင်းတွင် အကောင်းဆုံးနှင့် အထင်ရှားဆုံး"
-        " အားကစားအန်နီမေးရှင်းစာရင်းဝင် တစ်ခုဖြစ်ပါသည်။\n"
-        "• ⭐ IMDb တွင် 8.2 အထိ မြင့်မားသော Rating ရရှိထားပြီး၊"
-        " ဝေဖန်ရေးသမားများနှင့် ပရိသတ်များ၏ အသိအမှတ်ပြုမှုကို အပြည့်အဝ"
-        " ရရှိထားသော လက်ရာမြောက် ဇာတ်ကားကောင်း ဖြစ်ပါသည်။ 🔥"
-    )
-    bot.reply_to(message, reply, parse_mode="Markdown")
-
-  # ၄. ဇာတ်ကား အချက်အလက်ဆိုင်ရာ မေးခွန်းများ
-  elif any(
-      kw in text
-      for kw in [
-          "joe",
-          "တစ်ခုတည်း",
-          "တခြား",
-          "ကား",
-          "season",
-          "ep",
-          "episode",
-          "ပိုင်း",
-          "ဇာတ်လမ်း",
-      ]
-  ):
-    reply = (
-        "🥊 **Ashita No Joe အချက်အလက်များ:**\n"
-        "━━━━━━━━━━━━━━━━━━━━━━\n"
-        "• 📺 Season 1 - Episode 79\n"
-        "• 📺 Season 2 - Episode 47\n"
-        "• 🎬 Total Episodes: 126 ပိုင်း\n"
-        "• ⭐ IMDb Rating: 8.2/10\n\n"
-        "⚠️ **Ashita No Joe Series တစ်ခုတည်းအတွက်သာ ဖြစ်ပါသည်။**\n"
-        "လက်ရှိတွင် တခြားကားများအတွက် Premium သီးသန့် မဖွင့်လှစ်သေးပါ။"
-    )
-    bot.reply_to(message, reply, parse_mode="Markdown")
-
-  # ၅. Fallback (မသိရှိသေးသော စကားလုံးများအတွက် Admin ဆီ လွှဲရန်)
-  else:
     ai_reply = (
-        "🤖 **Nasspar's Bot AI Assistant:**\n"
-        "━━━━━━━━━━━━━━━━━━━━━━\n"
-        "မိတ်ဆွေ မေးမြန်းထားသော အချက်အလက်နှင့် ပတ်သက်၍ အသေးစိတ်သိရှိလိုပါက"
-        " အောက်ပါ Admin များထံသို့ တိုက်ရိုက် ဆက်သွယ်စုံစမ်းနိုင်ပါတယ် ခင်ဗျာ-👇\n\n"
-        "• 💬 Admin (1): @Nazzpar\n"
-        "• 💬 Admin (2): @hikarikenn"
+        f"🤖 **Nasspar's Bot AI Assistant:**\n━━━━━━━━━━━━━━━━━━━━━━\n"
+        f"{completion.choices[0].message.content}"
     )
     bot.reply_to(message, ai_reply, parse_mode="Markdown")
+  except Exception as e:
+    print(f"Groq API Error: {e}")
+    fallback_reply = (
+        "🤖 **Nasspar's Bot AI Assistant:**\n━━━━━━━━━━━━━━━━━━━━━━\n"
+        "လက်ရှိတွင် AI တုံ့ပြန်မှု အနည်းငယ်နှေးကွေးနေပါသည်။ အသေးစိတ်သိရှိလိုပါက"
+        " Admin များဖြစ်သော @Nazzpar နှင့် @hikarikenn ထံသို့ တိုက်ရိုက်"
+        " ဆက်သွယ်စုံစမ်းနိုင်ပါတယ် ခင်ဗျာ။ 🙏"
+    )
+    bot.reply_to(message, fallback_reply, parse_mode="Markdown")
 
 
 if __name__ == "__main__":
-  print("Bot is running...")
+  print("Bot is running with Groq API & Payment Approval System...")
   bot.infinity_polling()
