@@ -1,0 +1,56 @@
+Nasspar's Bot — Railway Deployment
+==================================
+
+FILES
+- nasspar_bot.py
+- requirements.txt
+- Procfile
+
+DEPLOY
+1. Upload all three files to the root of your GitHub repository.
+2. Connect the repository to a Railway service.
+3. Set the Railway Variables:
+   BOT_TOKEN = your Telegram BotFather token
+   DB_FILE = /data/nasspar_bot.db
+   PREMIUM_CHANNEL_ID = -100xxxxxxxxxx (recommended; needed for individual invite links and channel removal)
+4. Add a Railway Volume and mount it at /data. Without persistent storage, the SQLite database and automatic backups may be lost on redeploy.
+5. Give the bot administrator rights in the Premium Channel. Invite permission is required for invite links; ban/restrict permission is required for member removal.
+6. Give the bot sufficient access to check membership in @seriesmoviesplanet007.
+7. Deploy. Railway can use the Procfile command: worker: python nasspar_bot.py
+
+NEW FEATURES
+- Anti-Spam: maximum 6 messages per 10 seconds; 30-second cooldown after exceeding the limit.
+- Automatic SQLite backup: one backup at startup and every 24 hours; automatic backups older than 7 days are removed.
+- Advanced Dashboard: daily new users, users, members, payment status, estimated revenue, referrals and bans.
+- User Profile: /profile or /me; also available from the main menu.
+- Referral: /referral or /refer. A referred user is counted once; 1 point is awarded when that user becomes a paid member.
+- User Search: /search USER_ID or /search username/name (requires the existing users permission).
+- Polling recovery, broadcast retry-after handling and safer member removal/database consistency.
+
+IMPORTANT COMMANDS
+/start, /faq, /help
+/profile, /me
+/referral, /refer
+/admin, /dashboard
+/search USER_ID or USERNAME
+/addadmin USER_ID [superadmin|moderator] (Owner only)
+/removeadmin USER_ID (Owner only)
+/admins, /permissions USER_ID, /setperm USER_ID permission on|off
+/stats, /members, /check USER_ID, /history USER_ID, /logs
+/payments, /ban USER_ID, /unban USER_ID
+/broadcast MESSAGE
+/addmember USER_ID, /removemember USER_ID
+/backup, /reset (Owner only)
+
+NOTES
+- Owner ID is fixed in source: 5188275898.
+- Existing SQLite databases are migrated in place. Take a manual backup before the first upgrade deployment.
+- Lifetime membership has no expiry date.
+- If PREMIUM_CHANNEL_ID is omitted, the old static invite-link fallback remains enabled for compatibility. Individual one-use invites require PREMIUM_CHANNEL_ID and appropriate bot admin permissions.
+- Telegram one-use invite links are not cryptographically bound to a particular Telegram user ID.
+- Referral points are tracked in the database; they are not cash and cannot currently be redeemed automatically.
+- Revenue is estimated as approved payment count multiplied by MEMBER_PRICE (5,000 MMK). Manually granted memberships are not counted as payment revenue.
+- The bot cannot verify bank transfers automatically; an authorized admin must inspect each receipt.
+- Anti-spam counters are held in memory and reset when the bot restarts.
+- Automatic backups are stored beside the SQLite database. Keep the Railway Volume mounted at /data.
+- Test with a private test channel before using real payments or factory reset.
