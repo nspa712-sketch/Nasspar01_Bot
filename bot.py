@@ -224,7 +224,7 @@ def callback_handler(call):
 def handle_text_messages(message):
   text = message.text.lower()
 
-  # ငွေပေးချေမှုဆိုင်ရာ
+  # ၁. ငွေပေးချေမှုဆိုင်ရာ မေးခွန်းများ
   if any(
       kw in text
       for kw in [
@@ -253,34 +253,7 @@ def handle_text_messages(message):
     )
     bot.reply_to(message, reply, parse_mode="Markdown")
 
-  # အချက်အလက်ဆိုင်ရာ
-  elif any(
-      kw in text
-      for kw in [
-          "joe",
-          "တစ်ခုတည်း",
-          "တခြား",
-          "ကား",
-          "season",
-          "ep",
-          "episode",
-          "ပိုင်း",
-          "ဇာတ်လမ်း",
-      ]
-  ):
-    reply = (
-        "🥊 **Ashita No Joe အချက်အလက်များ:**\n"
-        "━━━━━━━━━━━━━━━━━━━━━━\n"
-        "• 📺 Season 1 - Episode 79\n"
-        "• 📺 Season 2 - Episode 47\n"
-        "• 🎬 Total Episodes: 126 ပိုင်း\n"
-        "• ⭐ IMDb Rating: 8.2/10\n\n"
-        "⚠️ **Ashita No Joe Series တစ်ခုတည်းအတွက်သာ ဖြစ်ပါသည်။**\n"
-        "လက်ရှိတွင် တခြားကားများအတွက် Premium သီးသန့် မဖွင့်လှစ်သေးပါ။"
-    )
-    bot.reply_to(message, reply, parse_mode="Markdown")
-
-  # သမိုင်းကြောင်းဆိုင်ရာ
+  # ၂. သမိုင်းကြောင်းဆိုင်ရာ မေးခွန်းများ (အပေါ်သို့ တင်ထားပြီး)
   elif any(
       kw in text
       for kw in [
@@ -309,7 +282,7 @@ def handle_text_messages(message):
     )
     bot.reply_to(message, reply, parse_mode="Markdown")
 
-  # လူကြိုက်များမှုဆိုင်ရာ
+  # ၃. လူကြိုက်များမှုဆိုင်ရာ မေးခွန်းများ
   elif any(
       kw in text
       for kw in ["popular", "နာမည်ကြီး", "လူကြိုက်များ", "top", "best", "rating"]
@@ -325,7 +298,34 @@ def handle_text_messages(message):
     )
     bot.reply_to(message, reply, parse_mode="Markdown")
 
-  # Fallback
+  # ၄. ဇာတ်ကား အချက်အလက်ဆိုင်ရာ မေးခွန်းများ
+  elif any(
+      kw in text
+      for kw in [
+          "joe",
+          "တစ်ခုတည်း",
+          "တခြား",
+          "ကား",
+          "season",
+          "ep",
+          "episode",
+          "ပိုင်း",
+          "ဇာတ်လမ်း",
+      ]
+  ):
+    reply = (
+        "🥊 **Ashita No Joe အချက်အလက်များ:**\n"
+        "━━━━━━━━━━━━━━━━━━━━━━\n"
+        "• 📺 Season 1 - Episode 79\n"
+        "• 📺 Season 2 - Episode 47\n"
+        "• 🎬 Total Episodes: 126 ပိုင်း\n"
+        "• ⭐ IMDb Rating: 8.2/10\n\n"
+        "⚠️ **Ashita No Joe Series တစ်ခုတည်းအတွက်သာ ဖြစ်ပါသည်။**\n"
+        "လက်ရှိတွင် တခြားကားများအတွက် Premium သီးသန့် မဖွင့်လှစ်သေးပါ။"
+    )
+    bot.reply_to(message, reply, parse_mode="Markdown")
+
+  # ၅. Fallback (မသိရှိသေးသော စကားလုံးများအတွက် Admin ဆီ လွှဲရန်)
   else:
     ai_reply = (
         "🤖 **Nasspar's Bot AI Assistant:**\n"
