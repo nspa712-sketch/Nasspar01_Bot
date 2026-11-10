@@ -307,7 +307,6 @@ def initialize_database():
             )
         """)
 
-        # Safe migration for databases created by the previous bot version.
         add_column_if_missing(conn, "payments", "reviewed_by", "INTEGER")
         add_column_if_missing(conn, "payments", "review_note", "TEXT")
         add_column_if_missing(conn, "members", "invite_link", "TEXT")
@@ -324,9 +323,8 @@ def initialize_database():
             )
         """)
         conn.execute("CREATE INDEX IF NOT EXISTS idx_referrals_referrer ON referrals(referrer_id)")
-
         conn.execute("CREATE INDEX IF NOT EXISTS idx_payments_user ON payments(user_id, status)")
-        # Keep only the newest pending record if an older database already has duplicates.
+        
         conn.execute("""
             UPDATE payments SET status='superseded'
             WHERE status='pending' AND payment_id NOT IN (
@@ -337,17 +335,16 @@ def initialize_database():
         conn.execute("CREATE INDEX IF NOT EXISTS idx_payments_status ON payments(status)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_logs_created ON activity_logs(created_at)")
 
-        # Owner is always seeded and cannot be removed through bot commands.
         conn.execute("""
             INSERT OR IGNORE INTO admins (user_id, role, added_by, added_at)
-            VALUES (?, 'owner', ?, ?)
-        """, (CREATOR_ID, CREATOR_ID, current_time()))
+            VALUES (?, ?, ?, ?)
+        """, (CREATOR_ID, 'owner', CREATOR_ID, current_time()))
 
         for permission in PERMISSIONS:
             conn.execute("""
                 INSERT OR IGNORE INTO admin_permissions (user_id, permission, enabled)
-                VALUES (?, ?, 1)
-            """, (CREATOR_ID, permission))
+                VALUES (?, ?, ?)
+            """, (CREATOR_ID, permission, 1))
 
     logger.info("Database initialized / migrated successfully.")
 
@@ -518,7 +515,6 @@ def register_user(user, referred_by=None):
         is_new = result.rowcount > 0
         conn.execute("UPDATE users SET first_name=?, username=? WHERE user_id=?",
                      (name, username, user.id))
-        # A referral is recorded only once, and self-referrals are rejected.
         if is_new and referred_by and int(referred_by) != int(user.id):
             referrer = conn.execute("""SELECT u.user_id FROM users u
                                       LEFT JOIN banned_users b ON b.user_id=u.user_id
@@ -826,7 +822,7 @@ def auto_reply_for_text(user_text):
 
 
 # =========================================================
-# 7. PAYMENT / PREMIUM CHANNEL ACCESS
+# 7. PAYMENT / PREMIUM CHANNEL ACCESS (UPDATED)
 # =========================================================
 
 def create_member_invite(user_id):
@@ -834,16 +830,17 @@ def create_member_invite(user_id):
     if not PREMIUM_CHANNEL_ID:
         return PREMIUM_CHANNEL_LINK
     try:
+        # Member တစ်ဦးချင်းစီအတွက် တစ်ခါသုံး / ၂၄ နာရီသက်တမ်းရှိ သီးသန့်လင့်ခ်အသစ် ဖန်တီးခြင်း
         invite = bot.create_chat_invite_link(
-            PREMIUM_CHANNEL_ID,
+            chat_id=PREMIUM_CHANNEL_ID,
             member_limit=1,
             expire_date=int((datetime.now(TIMEZONE) + timedelta(hours=24)).timestamp()),
-            name=f"Member {user_id}"
+            name=f"Member_{user_id}"
         )
         return invite.invite_link
     except Exception:
-        logger.exception("Individual invite creation failed.")
-        return None
+        logger.exception("Individual invite creation failed, fallback to PREMIUM_CHANNEL_LINK.")
+        return PREMIUM_CHANNEL_LINK
 
 
 def remove_from_premium_channel(user_id):
@@ -968,7 +965,6 @@ def create_database_backup(kind="manual"):
 
 
 def factory_reset_data(actor_id):
-    """Clears user/payment/member activity data, but preserves admins and settings."""
     backup_path = create_database_backup()
     with get_db() as conn:
         conn.execute("DELETE FROM payments")
@@ -977,7 +973,6 @@ def factory_reset_data(actor_id):
         conn.execute("DELETE FROM banned_users")
         conn.execute("DELETE FROM activity_logs")
         conn.execute("DELETE FROM referrals")
-        # Keep admins, admin_permissions and settings.
         conn.execute("DELETE FROM sqlite_sequence WHERE name IN ('payments', 'activity_logs', 'referrals')")
     log_action(actor_id, "Factory reset completed", None, "User/member/payment data cleared")
     return backup_path
@@ -1046,7 +1041,6 @@ _spam_lock = threading.Lock()
 
 
 def is_rate_limited(user_id):
-    """Return True and notify when a user exceeds the ordinary-message rate."""
     now = time.monotonic()
     uid = int(user_id)
     with _spam_lock:
@@ -1171,7 +1165,6 @@ def search_users_text(keyword):
 
 
 def automatic_backup_worker():
-    """Create daily SQLite online backups and remove backups older than retention."""
     while True:
         try:
             path = create_database_backup(kind="auto")
@@ -1780,7 +1773,6 @@ def callback_handler(call):
         safe_answer_callback(call, "အသုံးပြုခွင့် ပိတ်ထားပါသည်။", True)
         return
 
-    # Owner-only factory reset callbacks.
     if data in ("reset_confirm", "reset_cancel"):
         if not is_owner(user_id):
             safe_answer_callback(call, "Owner Only!", True)
@@ -1801,7 +1793,6 @@ def callback_handler(call):
                     "Owner နဲ့ Admin Permissions များကို ထိန်းသိမ်းထားပါတယ်။",
                     chat_id, call.message.message_id, parse_mode="HTML"
                 )
-            # Deliver the pre-reset database backup to the Owner.
             try:
                 with open(backup_path, "rb") as backup_file:
                     bot.send_document(CREATOR_ID, backup_file, caption="💾 Factory Reset မလုပ်မီ Database Backup")
@@ -1813,7 +1804,6 @@ def callback_handler(call):
             safe_answer_callback(call, "Reset မအောင်မြင်ပါ။", True)
         return
 
-    # Admin permission toggle buttons.
     if data.startswith("permrefresh_"):
         if not has_permission(user_id, "admins"):
             safe_answer_callback(call, "Permission မရှိပါ။", True)
@@ -1852,7 +1842,6 @@ def callback_handler(call):
             safe_answer_callback(call, "Permission ပြောင်းရာတွင် အမှားဖြစ်ပါသည်။", True)
         return
 
-    # Payment approval / rejection.
     if data.startswith(("approve_", "reject_")):
         if not has_permission(user_id, "payments"):
             safe_answer_callback(call, "⛔ Payment စစ်ဆေးခွင့်မရှိပါ။", True)
@@ -1872,24 +1861,14 @@ def callback_handler(call):
             return
 
         if action_name == "approve":
-            if invite_link:
-                success_text = (
-                    "🎉 <b>ဂုဏ်ယူပါတယ်!</b> 👏\n"
-                    "━━━━━━━━━━━━━━━━━━━━━━\n"
-                    "မိတ်ဆွေသည် Ashita No Joe Series အတွက် တစ်သက်စာ Member ဖြစ်သွားပါပြီ။ 👑\n\n"
-                    "Premium Channel သို့ ဝင်ရန် ကိုယ်ပိုင် Invite Link:\n"
-                    f"{html_text(invite_link)}\n\n"
-                    "ဤ Link သည် တစ်ဦးသာ အသုံးပြုနိုင်ပြီး ၂၄ နာရီအတွင်း သက်တမ်းကုန်ပါမည်။"
-                )
-            else:
-                success_text = (
-                    "🎉 <b>ဂုဏ်ယူပါတယ်!</b>\n"
-                    "သင်သည် Lifetime Member ဖြစ်သွားပါပြီ။\n\n"
-                    "Premium Channel Link:\n"
-                    f"{html_text(PREMIUM_CHANNEL_LINK)}\n\n"
-                    "မှတ်ချက်: တစ်ဦးချင်း Invite Link ရရှိရန် Bot ကို Premium Channel Admin ထားပြီး "
-                    "PREMIUM_CHANNEL_ID သတ်မှတ်ပါ။"
-                )
+            success_text = (
+                "🎉 <b>ဂုဏ်ယူပါတယ်!</b> 👏\n"
+                "━━━━━━━━━━━━━━━━━━━━━━\n"
+                "မိတ်ဆွေသည် Ashita No Joe Series အတွက် တစ်သက်စာ Member ဖြစ်သွားပါပြီ။ 👑\n\n"
+                "Premium Channel သို့ ဝင်ရန် ကိုယ်ပိုင် Invite Link:\n"
+                f"{html_text(invite_link)}\n\n"
+                "ဤ Link သည် တစ်ဦးသာ အသုံးပြုနိုင်ပြီး ၂၄ နာရီအတွင်း သက်တမ်းကုန်ပါမည်။"
+            )
             try:
                 bot.send_message(target_id, success_text, parse_mode="HTML")
             except Exception:
@@ -1917,7 +1896,6 @@ def callback_handler(call):
                 pass
         return
 
-    # Admin dashboard callbacks.
     if data.startswith("dash_"):
         action = data[5:]
         if action == "stats":
@@ -1974,7 +1952,6 @@ def callback_handler(call):
         safe_answer_callback(call)
         return
 
-    # Subscription re-check must be handled before the subscription gate.
     if data == "check_sub":
         if check_user_subscription(user_id):
             safe_answer_callback(call, "✅ Channel Join ပြီးပါပြီ!")
@@ -1988,7 +1965,6 @@ def callback_handler(call):
             safe_answer_callback(call, "❌ Channel ကို ဦးစွာ Join ပေးပါ။", True)
         return
 
-    # All normal user-facing callbacks require subscription, except admins.
     if not is_admin(user_id) and not check_user_subscription(user_id):
         safe_answer_callback(call, "Channel ကို Join ပေးပါ။", True)
         bot.send_message(chat_id, "⚠️ Channel Join လုပ်ရန် လိုအပ်ပါသည်။",
@@ -2031,12 +2007,12 @@ def callback_handler(call):
             chat_id,
             "👑 <b>Nasspar's Premium Channel</b>\n"
             "━━━━━━━━━━━━━━━━━━━━━━\n"
-            "👑လက်ရှိတွင် Premium Channel သီးသန် ဖွင့်လှစ်ထားခြင်း မရှိသေးပါ။ ဝန်ဆောင်မှု အသစ်များပေါ်ထွက်လာပါက ဤ bot မှတစ်ဆင့် အကြောင်းကြားပေးသွားပါမည်။💘။",
+            "👑လက်ရှိတွင် Premium Channel သီးသန့် ဖွင့်လှစ်ထားခြင်း မရှိသေးပါ။ ဝန်ဆောင်မှု အသစ်များပေါ်ထွက်လာပါက ဤ bot မှတစ်ဆင့် အကြောင်းကြားပေးသွားပါမည်။💘",
             parse_mode="HTML"
         )
     elif data in FAQ_ANSWERS:
         safe_answer_callback(call)
-        bot.send_message(chat_id, render_text(FAQ_ANSWERS[data]),
+ANSWERS        bot.send_message(chat_id, render_text(FAQ_[data]),
                          parse_mode="HTML", reply_markup=faq_keyboard())
     elif data == "main_menu":
         safe_answer_callback(call)
