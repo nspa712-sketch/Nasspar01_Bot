@@ -1,1 +1,1 @@
-worker: python nasspar_bot.py
+worker: python -u nassparbot_advanced.py
