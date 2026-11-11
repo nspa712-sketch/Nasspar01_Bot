@@ -57,7 +57,7 @@ AI_MODE = os.getenv("AI_MODE", "hybrid").strip().lower()
 MEMORY_MODE = os.getenv("MEMORY_MODE", "permanent").strip().lower()
 KNOWLEDGE_SCOPE = os.getenv("KNOWLEDGE_SCOPE", "general").strip().lower()
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "").strip()
-GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile").strip()
+GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.1-70b-versatile").strip()
 AI_HISTORY_WINDOW = max(2, min(int(os.getenv("AI_HISTORY_WINDOW", "12")), 30))
 AI_MAX_TOKENS = max(128, min(int(os.getenv("AI_MAX_TOKENS", "900")), 2000))
 GROQ_CLIENT = Groq(api_key=GROQ_API_KEY) if Groq and GROQ_API_KEY else None
