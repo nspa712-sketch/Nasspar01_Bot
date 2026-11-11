@@ -1,2 +1,2 @@
-pyTelegramBotAPI>=4.16.0
+pyTelegramBotAPI>=4.20.0
 groq>=0.11.0
