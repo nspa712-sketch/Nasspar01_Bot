@@ -57,10 +57,23 @@ AI_MODE = os.getenv("AI_MODE", "hybrid").strip().lower()
 MEMORY_MODE = os.getenv("MEMORY_MODE", "permanent").strip().lower()
 KNOWLEDGE_SCOPE = os.getenv("KNOWLEDGE_SCOPE", "general").strip().lower()
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "").strip()
-GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.1-70b-versatile").strip()
+# Groq retired llama-3.1-70b-versatile. Use a current production model by default.
+GROQ_MODEL = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b").strip()
+_DEPRECATED_GROQ_MODELS = {
+    "llama-3.1-70b-versatile",
+    "llama-3.3-70b-versatile",
+    "llama-3.1-8b-instant",
+}
+if GROQ_MODEL in _DEPRECATED_GROQ_MODELS:
+    logger.warning("Deprecated GROQ_MODEL=%s; switching to openai/gpt-oss-120b.", GROQ_MODEL)
+    GROQ_MODEL = "openai/gpt-oss-120b"
 AI_HISTORY_WINDOW = max(2, min(int(os.getenv("AI_HISTORY_WINDOW", "12")), 30))
 AI_MAX_TOKENS = max(128, min(int(os.getenv("AI_MAX_TOKENS", "900")), 2000))
-GROQ_CLIENT = Groq(api_key=GROQ_API_KEY) if Groq and GROQ_API_KEY else None
+try:
+    GROQ_CLIENT = Groq(api_key=GROQ_API_KEY, timeout=30.0, max_retries=1) if Groq and GROQ_API_KEY else None
+except Exception:
+    GROQ_CLIENT = None
+    logging.getLogger("NassparBot").exception("Could not initialize Groq client.")
 
 TIMEZONE = ZoneInfo("Asia/Yangon")
 MAX_MESSAGE_LENGTH = 3900
@@ -848,7 +861,7 @@ def auto_reply_for_text(user_text):
                             "တခြားကား", "အခြားကား"]):
         return FAQ_ANSWERS["faq_catalog"], None
     if any(k in t for k in ["ဇာတ်လမ်းအကျဉ်း", "အကျဉ်းချုပ်", "ဇာတ်လမ်းပြော", "ဇာတ်လမ်းကဘာ",
-                            "ဇာတ်လမ်းဘယ်လို", "ဘာကား", "ဘာအကြောင်း"]):
+                            "ဇာတ်လမ်းဘယ်လို", "ဘာကား"]):
         return FAQ_ANSWERS["faq_story"], None
     if any(k in t for k in ["joe ကဘယ်သူ", "joe ဘယ်သူ", "ဘယ်သူလဲ joe", "joe ဆိုတာ"]):
         return FAQ_ANSWERS["faq_joe"], None
@@ -866,7 +879,9 @@ def auto_reply_for_text(user_text):
         return FAQ_ANSWERS["faq_review"], None
     if any(k in t for k in ["လူကြိုက်", "ရေပန်းစား", "နာမည်ကြီး", "popular", "famous"]):
         return FAQ_ANSWERS["faq_legacy"], None
-    if any(k in t for k in ["အကြောင်း", "မေးချင်", "help", "မေးခွန်း"]):
+    # Do not route every generic question containing "အကြောင်း" to the Joe FAQ.
+    # Only an explicit request about this bot's main series should open the FAQ menu.
+    if any(k in t for k in ["ashita no joe အကြောင်း", "ashita no joe အကြောင်း", "joe အကြောင်း"]):
         return (
             "🥊 Ashita No Joe အကြောင်း ဘာသိချင်ပါသလဲခင်ဗျာ?\n"
             "အောက်က FAQ ခလုတ်တွေကို နှိပ်ပြီး မေးနိုင်ပါတယ်။",
@@ -928,39 +943,50 @@ def load_ai_memory(user_id, limit=None):
 
 def groq_answer(user_id, user_text):
     if not GROQ_CLIENT:
+        logger.error(
+            "Groq AI is unavailable: groq_package_installed=%s api_key_configured=%s",
+            Groq is not None, bool(GROQ_API_KEY)
+        )
         return None
+
     history = load_ai_memory(user_id)
     # Save current message only after reading history to avoid duplicate prompt entries.
     messages = [{"role": "system", "content": AI_SYSTEM_PROMPT}]
     messages.extend(history)
     messages.append({"role": "user", "content": user_text[:12000]})
+
     response = GROQ_CLIENT.chat.completions.create(
         model=GROQ_MODEL,
         messages=messages,
-        temperature=0.65,
         max_tokens=AI_MAX_TOKENS,
     )
     answer = (response.choices[0].message.content or "").strip()
     if not answer:
+        logger.warning("Groq returned an empty response (model=%s).", GROQ_MODEL)
         return None
+
     save_ai_memory(user_id, "user", user_text)
     save_ai_memory(user_id, "assistant", answer)
     return answer
 
 
 def hybrid_answer(user_id, user_text):
-    """Business-critical FAQ/payment answers stay deterministic; general Qs use Groq."""
+    """Keep trusted payment/membership FAQs local; send other questions to Groq."""
     local_answer, keyboard = auto_reply_for_text(user_text)
     is_unknown_faq = local_answer.startswith("တောင်းပန်ပါတယ်ခင်ဗျာ။ ဒီမေးခွန်းအတွက်")
+
     if AI_MODE == "hybrid" and is_unknown_faq:
         try:
             answer = groq_answer(user_id, user_text)
             if answer:
                 return answer, None, True
-        except Exception:
-            logger.exception("Groq AI request failed for user %s", user_id)
+        except Exception as exc:
+            # Log the actual provider error in Railway deployment logs for diagnosis.
+            logger.exception("Groq AI request failed (model=%s, user_id=%s): %s",
+                             GROQ_MODEL, user_id, exc)
         return AI_FALLBACK_TEXT, None, False
-    # Keep known FAQ and payment answers as fixed, trusted bot responses.
+
+    # Keep known FAQ, payment and membership answers as fixed, trusted bot responses.
     return local_answer, keyboard, False
 
 
@@ -2686,8 +2712,12 @@ if __name__ == "__main__":
         logger.warning("Unsupported AI_MODE=%s; hybrid handler remains active.", AI_MODE)
     if MEMORY_MODE != "permanent":
         logger.warning("MEMORY_MODE is not permanent; conversation history will not be saved.")
+    if not Groq:
+        logger.error("Groq Python package is missing. Add 'groq' to requirements.txt and redeploy.")
+    if not GROQ_API_KEY:
+        logger.error("GROQ_API_KEY is missing from Railway Variables; AI replies are disabled.")
     if not GROQ_CLIENT:
-        logger.warning("Set GROQ_API_KEY and install groq package to enable AI fallback for general questions.")
+        logger.warning("Groq AI is not initialized; check package installation and GROQ_API_KEY.")
     logger.info("━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
     try:
         bot.set_my_commands([
